@@ -180,7 +180,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 #static file with gcloud storage
-STATIC_URL = 'https://storage.googleapis.com/cinematch-c241-ps352/static'
+STATIC_URL = 'https://storage.googleapis.com/cinematch-c241-ps352/static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
