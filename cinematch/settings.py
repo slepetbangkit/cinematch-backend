@@ -26,6 +26,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 PRODUCTION = os.environ.get("PRODUCTION", False) == "True"
+DEPLOYMENT = os.environ.get("DEPLOYMENT", False) == "True"
 DEBUG = not PRODUCTION
 APP_URL = os.environ.get("APP_URL", "")
 
@@ -129,7 +130,7 @@ WSGI_APPLICATION = "cinematch.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-if PRODUCTION:
+if DEPLOYMENT:
     DATABASES = {
         'default': {
             "ENGINE": "django.db.backends.postgresql",
@@ -179,8 +180,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-#static file with gcloud storage
-STATIC_URL = 'https://storage.googleapis.com/cinematch-c241-ps352/static/'
+# static file with gcloud storage
+STATIC_ROOT = 'static/'
+if DEPLOYMENT:
+    STATIC_URL = 'https://storage.googleapis.com/cinematch-c241-ps352/'
+else:
+    STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
