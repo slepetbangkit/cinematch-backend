@@ -35,6 +35,8 @@ CSRF_TRUSTED_ORIGINS = [APP_URL]
 SECURE_SSL_REDIRECT = PRODUCTION
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+APPEND_SLASH = False
+
 # Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",
