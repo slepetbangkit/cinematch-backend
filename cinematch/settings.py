@@ -184,7 +184,7 @@ USE_TZ = True
 # static file with gcloud storage
 STATIC_ROOT = 'static/'
 if PRODUCTION:
-    STATIC_URL = 'https://storage.googleapis.com/cinematch-c241-ps352/'
+    STATIC_URL = 'https://storage.googleapis.com/cinematch-c241-ps352/static/'
 else:
     STATIC_URL = 'static/'
 
