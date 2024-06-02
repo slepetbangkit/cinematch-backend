@@ -10,7 +10,9 @@ from user.models import CustomUser
 # Create your models here.
 class Movie(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tmdb_id = models.IntegerField()
     title = models.CharField(max_length=255)
+    poster_url = models.URLField()
     description = models.TextField()
     director = models.CharField(max_length=255)
     release_date = models.DateField()
