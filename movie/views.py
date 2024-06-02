@@ -1,8 +1,5 @@
-import requests
-from requests.auth import HTTPBasicAuth
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.generics import CreateAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -11,6 +8,11 @@ from .serializers import (
         MovieSerializer,
         PlaylistSerializer,
 )
+
+from requests import get
+import os
+
+API_KEY = os.getenv('TMDB_API_KEY')
 
 
 class MovieView(APIView):
@@ -23,12 +25,11 @@ class MovieView(APIView):
             if search_query:
                 tmdb_api_url = "https://api.themoviedb.org"
                 url = f"{tmdb_api_url}/3/search/movie?query={search_query}"
-                api_key = ""
                 headers = {
                     "accept": "application/json",
-                    "Authorization": f"Bearer {api_key}"
+                    "Authorization": f"Bearer {API_KEY}"
                 }
-                response = requests.get(url, headers=headers)
+                response = get(url, headers=headers)
                 return Response(response.json())
 
             # else, return movies already saved in the backend database
@@ -112,14 +113,6 @@ class PlaylistView(APIView):
     def get(self, request):
         try:
             playlists = Playlist.objects.filter(user=request.user)
-
-            # if playlist is not found, return user not have any playlist
-            if not playlists:
-                return Response({
-                    "error": True,
-                    "message": "User does not have any playlists.",
-                }, status.HTTP_404_NOT_FOUND)
-
             serializer = PlaylistSerializer(playlists, many=True)
             return Response(serializer.data)
         except Exception:
@@ -180,20 +173,55 @@ class PlaylistDetailView(APIView):
                 playlist.save()
 
                 # Add new movies
-                new_movies = data.get('new_movie', [])
+                new_movies = data.get('new_movie_tmdb_id', [])
                 for movie_id in new_movies:
                     try:
-                        movie = Movie.objects.get(pk=movie_id)
+                        movie = Movie.objects.get(tmdb_id=movie_id)
                         PlaylistMovie.objects.get_or_create(playlist=playlist, movie=movie)
                     except Movie.DoesNotExist:
-                        continue
+                        headers = {
+                                "accept": "application/json",
+                                "Authorization": f"Bearer {API_KEY}"
+                            }
+
+                        url_tmdb_movie_detail = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={API_KEY}&language=en-US"
+                        response_movie_detail = get(url_tmdb_movie_detail, headers=headers)
+                        movie_detail_data = response_movie_detail.json()
+
+                        if response_movie_detail.status_code != 200:
+                            return Response({
+                                "error": True,
+                                "message": "Movie not found.",
+                            }, status.HTTP_404_NOT_FOUND)
+
+                        url_tmdb_movie_credits = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={API_KEY}"
+                        response_movie_credits = get(url_tmdb_movie_credits, headers=headers)
+                        movie_credits_data = response_movie_credits.json().get('crew', [])
+
+                        for crew in movie_credits_data:
+                            if crew['job'] == 'Director':
+                                director = crew['name']
+                                break
+
+                        movie = Movie.objects.create(
+                            tmdb_id=movie_detail_data["id"],
+                            title=movie_detail_data["title"],
+                            poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
+                            description=movie_detail_data["overview"],
+                            director=director,
+                            release_date=movie_detail_data["release_date"],
+                            rating=0.0
+                        )
+                        PlaylistMovie.objects.get_or_create(playlist=playlist, movie=movie)
 
                 # Delete movies
-                delete_movies = data.get('delete_movie', [])
+                delete_movies = data.get('delete_movie_tmdb_id', [])
                 for movie_id in delete_movies:
                     try:
-                        movie = Movie.objects.get(pk=movie_id)
-                        PlaylistMovie.objects.filter(playlist=playlist, movie=movie).delete()
+                        movie = Movie.objects.get(tmdb_id=movie_id)
+                        PlaylistMovie.objects.filter(
+                                playlist=playlist, movie=movie
+                                ).delete()
                     except Movie.DoesNotExist:
                         continue
 
@@ -204,10 +232,12 @@ class PlaylistDetailView(APIView):
                     "error": True,
                     "message": "Playlist not found.",
                 }, status.HTTP_404_NOT_FOUND)
-            except Exception:
+            except Exception as e:
                 return Response({
                     "error": True,
                     "message": "An error has occured.",
+                    "Exception": e,
+
                 }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, pk):
@@ -221,7 +251,9 @@ class PlaylistDetailView(APIView):
                     "message": "You do not have permission to delete this playlist.",
                 }, status=status.HTTP_403_FORBIDDEN)
             playlist.delete()
-            return Response({"message": "Playlist deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+            return Response(
+                    {"message": "Playlist deleted successfully."},
+                    status=status.HTTP_204_NO_CONTENT)
         except Playlist.DoesNotExist:
             return Response({
                 "error": True,
