@@ -1,4 +1,5 @@
-from django.http import Http404
+import requests
+from requests.auth import HTTPBasicAuth
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.generics import CreateAPIView
@@ -11,14 +12,30 @@ from .serializers import (
         PlaylistSerializer,
 )
 
+
 class MovieView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         try:
+            # if search query is provided, fetch themoviedb api
+            search_query = request.GET.get('search')
+            if search_query:
+                tmdb_api_url = "https://api.themoviedb.org"
+                url = f"{tmdb_api_url}/3/search/movie?query={search_query}"
+                api_key = ""
+                headers = {
+                    "accept": "application/json",
+                    "Authorization": f"Bearer {api_key}"
+                }
+                response = requests.get(url, headers=headers)
+                return Response(response.json())
+
+            # else, return movies already saved in the backend database
             movies = Movie.objects.all()
             serializer = MovieSerializer(movies, many=True)
             return Response(serializer.data)
+
         except Exception:
             return Response({
                 "error": True,
@@ -44,7 +61,7 @@ class MovieView(APIView):
                 "message": "An error has occured.",
                 "Exception": Exception,
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
     def delete(self, request):
         try:
             movie = Movie.objects.get(pk=request.data['id'])
@@ -63,7 +80,7 @@ class MovieView(APIView):
                 "error": True,
                 "message": "An error has occured.",
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
     def patch(self, request):
         try:
             movie = Movie.objects.get(pk=request.data['id'])
@@ -102,7 +119,7 @@ class PlaylistView(APIView):
                     "error": True,
                     "message": "User does not have any playlists.",
                 }, status.HTTP_404_NOT_FOUND)
-            
+
             serializer = PlaylistSerializer(playlists, many=True)
             return Response(serializer.data)
         except Exception:
@@ -144,7 +161,7 @@ class PlaylistDetailView(APIView):
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def patch(self, request, pk):
-            try:  
+            try:
                 playlist = Playlist.objects.get(pk=pk)
 
                 # Check if user is the owner of the playlist
@@ -153,15 +170,15 @@ class PlaylistDetailView(APIView):
                         "error": True,
                         "message": "You do not have permission to edit this playlist.",
                     }, status=status.HTTP_403_FORBIDDEN)
-                
+
 
                 data = request.data
-                
+
                 # Update title and description
                 playlist.title = data.get('title', playlist.title)
                 playlist.description = data.get('description', playlist.description)
                 playlist.save()
-                
+
                 # Add new movies
                 new_movies = data.get('new_movie', [])
                 for movie_id in new_movies:
@@ -179,7 +196,7 @@ class PlaylistDetailView(APIView):
                         PlaylistMovie.objects.filter(playlist=playlist, movie=movie).delete()
                     except Movie.DoesNotExist:
                         continue
-                
+
                 serializer = PlaylistSerializer(playlist)
                 return Response(serializer.data)
             except Playlist.DoesNotExist:
