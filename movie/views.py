@@ -188,11 +188,12 @@ class PlaylistDetailView(APIView):
                         response_movie_detail = get(url_tmdb_movie_detail, headers=headers)
                         movie_detail_data = response_movie_detail.json()
 
-                        if response_movie_detail.status_code != 200:
+                        # return 502 if TMDB API is down
+                        if response_movie_detail.status_code == 404 or response_movie_detail.status_code == 401 or response_movie_detail.status_code != 200:
                             return Response({
                                 "error": True,
-                                "message": "Movie not found.",
-                            }, status.HTTP_404_NOT_FOUND)
+                                "message": f"TMDB :{response_movie_detail.json().get('status_message')} ",
+                            }, status.HTTP_502_BAD_GATEWAY)
 
                         url_tmdb_movie_credits = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={API_KEY}"
                         response_movie_credits = get(url_tmdb_movie_credits, headers=headers)
