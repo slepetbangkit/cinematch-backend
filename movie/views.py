@@ -1,7 +1,5 @@
-from django.http import Http404
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.generics import CreateAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -14,15 +12,31 @@ from .serializers import (
 from requests import get
 import os
 
+API_KEY = os.getenv('TMDB_API_KEY')
+
 
 class MovieView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         try:
+            # if search query is provided, fetch themoviedb api
+            search_query = request.GET.get('search')
+            if search_query:
+                tmdb_api_url = "https://api.themoviedb.org"
+                url = f"{tmdb_api_url}/3/search/movie?query={search_query}"
+                headers = {
+                    "accept": "application/json",
+                    "Authorization": f"Bearer {API_KEY}"
+                }
+                response = get(url, headers=headers)
+                return Response(response.json())
+
+            # else, return movies already saved in the backend database
             movies = Movie.objects.all()
             serializer = MovieSerializer(movies, many=True)
             return Response(serializer.data)
+
         except Exception:
             return Response({
                 "error": True,
@@ -48,7 +62,7 @@ class MovieView(APIView):
                 "message": "An error has occured.",
                 "Exception": Exception,
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
     def delete(self, request):
         try:
             movie = Movie.objects.get(pk=request.data['id'])
@@ -67,7 +81,7 @@ class MovieView(APIView):
                 "error": True,
                 "message": "An error has occured.",
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
     def patch(self, request):
         try:
             movie = Movie.objects.get(pk=request.data['id'])
@@ -140,7 +154,7 @@ class PlaylistDetailView(APIView):
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def patch(self, request, pk):
-            try:  
+            try:
                 playlist = Playlist.objects.get(pk=pk)
 
                 # Check if user is the owner of the playlist
@@ -149,15 +163,15 @@ class PlaylistDetailView(APIView):
                         "error": True,
                         "message": "You do not have permission to edit this playlist.",
                     }, status=status.HTTP_403_FORBIDDEN)
-                
+
 
                 data = request.data
-                
+
                 # Update title and description
                 playlist.title = data.get('title', playlist.title)
                 playlist.description = data.get('description', playlist.description)
                 playlist.save()
-                
+
                 # Add new movies
                 new_movies = data.get('new_movie_tmdb_id', [])
                 for movie_id in new_movies:
@@ -165,7 +179,6 @@ class PlaylistDetailView(APIView):
                         movie = Movie.objects.get(tmdb_id=movie_id)
                         PlaylistMovie.objects.get_or_create(playlist=playlist, movie=movie)
                     except Movie.DoesNotExist:
-                        API_KEY = os.getenv('TMDB_API_KEY')
                         headers = {
                                 "accept": "application/json",
                                 "Authorization": f"Bearer {API_KEY}"
@@ -185,7 +198,7 @@ class PlaylistDetailView(APIView):
                         url_tmdb_movie_credits = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={API_KEY}"
                         response_movie_credits = get(url_tmdb_movie_credits, headers=headers)
                         movie_credits_data = response_movie_credits.json().get('crew', [])
-        
+
                         for crew in movie_credits_data:
                             if crew['job'] == 'Director':
                                 director = crew['name']
@@ -207,10 +220,12 @@ class PlaylistDetailView(APIView):
                 for movie_id in delete_movies:
                     try:
                         movie = Movie.objects.get(tmdb_id=movie_id)
-                        PlaylistMovie.objects.filter(playlist=playlist, movie=movie).delete()
+                        PlaylistMovie.objects.filter(
+                                playlist=playlist, movie=movie
+                                ).delete()
                     except Movie.DoesNotExist:
                         continue
-                
+
                 serializer = PlaylistSerializer(playlist)
                 return Response(serializer.data)
             except Playlist.DoesNotExist:
@@ -237,7 +252,9 @@ class PlaylistDetailView(APIView):
                     "message": "You do not have permission to delete this playlist.",
                 }, status=status.HTTP_403_FORBIDDEN)
             playlist.delete()
-            return Response({"message": "Playlist deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+            return Response(
+                    {"message": "Playlist deleted successfully."},
+                    status=status.HTTP_204_NO_CONTENT)
         except Playlist.DoesNotExist:
             return Response({
                 "error": True,

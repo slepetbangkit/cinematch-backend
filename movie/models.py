@@ -5,8 +5,6 @@ import uuid
 from user.models import CustomUser
 
 
-
-
 # Create your models here.
 class Movie(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -22,6 +20,7 @@ class Movie(models.Model):
     def __str__(self):
         return self.title
 
+
 class Playlist(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
@@ -33,6 +32,7 @@ class Playlist(models.Model):
 
     def __str__(self):
         return self.title
+
 
 class PlaylistMovie(models.Model):
     playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE)
