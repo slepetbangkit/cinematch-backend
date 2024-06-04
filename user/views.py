@@ -189,5 +189,5 @@ class UserFollowingView(APIView):
 def searchProfile(request):
     search_query = request.GET.get('query')
     user = CustomUser.objects.filter(username__contains=search_query)
-    serializer = ProfileSerializer(user, many=False)
+    serializer = ProfileSerializer(user, many=True)
     return Response(serializer.data)
