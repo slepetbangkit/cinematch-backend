@@ -1,4 +1,5 @@
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
@@ -163,10 +164,10 @@ class UserFollowingView(APIView):
         try:
             user = request.user
             following_user = CustomUser.objects.get(username=username)
-            UserFollowingSerializer.delete(self,
-                                           data={"user": user,
-                                                 "following_user": following_user
-                                                 })
+            UserFollowingSerializer.delete(
+                    self,
+                    data={"user": user, "following_user": following_user}
+            )
             return Response({
                 "error": False,
                 "message": "Successfully unfollowed user.",
@@ -181,3 +182,12 @@ class UserFollowingView(APIView):
                 "error": True,
                 "message": "An error has occured.",
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def searchProfile(request):
+    search_query = request.GET.get('query')
+    user = CustomUser.objects.filter(username__contains=search_query)
+    serializer = ProfileSerializer(user, many=False)
+    return Response(serializer.data)

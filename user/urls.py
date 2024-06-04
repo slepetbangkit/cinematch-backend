@@ -6,6 +6,7 @@ from .views import (
         RegisterView,
         UserFollowingView,
         ProfileView,
+        searchProfile
 )
 
 
@@ -14,6 +15,7 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('register/', RegisterView.as_view(), name='auth_register'),
 
-    path('profile/<str:username>', ProfileView.as_view(), name='profile'),
-    path('profile/<str:username>/following', UserFollowingView.as_view(), name='following'),
+    path('profile/<str:username>/', ProfileView.as_view(), name='profile'),
+    path('profile/search', searchProfile, name='search_profiles'),
+    path('profile/<str:username>/following/', UserFollowingView.as_view(), name='following'),
 ]
