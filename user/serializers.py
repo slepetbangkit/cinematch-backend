@@ -9,7 +9,7 @@ from rest_framework.serializers import (
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import CustomUser, UserFollowing
+from .models import CustomUser, UserFollowing, UserActivity
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -137,3 +137,9 @@ class UserFollowingListSerializer(ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ('id', 'username')
+
+
+class UserActivitySerializer(ModelSerializer):
+    class Meta:
+        model = UserActivity
+        fields = '__all__'

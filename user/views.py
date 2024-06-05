@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import CustomUser, UserFollowing
+from .models import CustomUser, UserFollowing, UserActivity
 from .serializers import (
         MyTokenObtainPairSerializer,
         RegisterSerializer,
@@ -14,6 +14,7 @@ from .serializers import (
         UserFollowingSerializer,
         UserFollowingListSerializer,
         UserFollowerListSerializer,
+        UserActivitySerializer,
 )
 
 
@@ -140,6 +141,12 @@ class UserFollowingView(APIView):
                     data={"user": user.id,
                           "following_user": following_user.id})
             if serializer.is_valid():
+                UserActivity.objects.create(
+                    username=user,
+                    type="FOLLOWED_USER",
+                    followed_username=following_user,
+                    description=f"{user.username} has started following {username}"
+                )
                 serializer.save()
                 return Response({
                     "error": False,
@@ -154,7 +161,8 @@ class UserFollowingView(APIView):
                 "error": True,
                 "message": "User not found.",
             }, status.HTTP_404_NOT_FOUND)
-        except Exception:
+        except Exception as e:
+            raise e
             return Response({
                 "error": True,
                 "message": "An error has occured.",
@@ -193,4 +201,17 @@ def searchProfile(request):
     return Response({
                 "error": False,
                 "users": serializer.data
-            })
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getActivities(request):
+    followed_users = UserFollowing.objects.filter(user=request.user).values_list(
+            'following_user__username')
+    activities = UserActivity.objects.filter(username__in=followed_users)
+    serialized = UserActivitySerializer(activities, many=True)
+    return Response({
+                "error": False,
+                "activities": serialized.data
+    })
