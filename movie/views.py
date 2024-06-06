@@ -23,21 +23,56 @@ class MovieView(APIView):
             # if search query is provided, fetch themoviedb api
             search_query = request.GET.get('search')
             if search_query:
-                tmdb_api_url = "https://api.themoviedb.org"
-                url = f"{tmdb_api_url}/3/search/movie?query={search_query}"
+                tmdb_api_url = "https://api.themoviedb.org/3"
+                url = f"{tmdb_api_url}/search/movie?query={search_query}"
                 headers = {
                     "accept": "application/json",
                     "Authorization": f"Bearer {API_KEY}"
                 }
+
                 response = get(url, headers=headers)
-                return Response(response.json())
+
+                # return 502 if TMDB API is down
+                if response.status_code in [401, 404] or response.status_code != 200:
+                    return Response({
+                        "error": True,
+                        "message": f"TMDB :{response.json().get('status_message')} ",
+                    }, status.HTTP_502_BAD_GATEWAY)
+
+                results = []
+                movies = response.json()["results"]
+                for movie in movies:
+                    id = movie["id"]
+                    movie_credits_url = f"{tmdb_api_url}/movie/{id}/credits?api_key={API_KEY}"
+                    response_movie_credits = get(movie_credits_url, headers=headers)
+                    movie_credits_data = response_movie_credits.json().get('crew', [])
+
+                    for crew in movie_credits_data:
+                        if crew['job'] == 'Director':
+                            director = crew['name']
+                            break
+
+                    results.append({
+                        "tmdb_id": id,
+                        "title": movie["title"],
+                        "poster_url": f"https://image.tmdb.org/t/p/original/{movie['poster_path']}",
+                        "description": movie["overview"],
+                        "director": director,
+                        "release_date": movie["release_date"],
+                        "rating": 0.0,
+                    })
+
+                return Response(
+                    results
+                )
 
             # else, return movies already saved in the backend database
             movies = Movie.objects.all()
             serializer = MovieSerializer(movies, many=True)
             return Response(serializer.data)
 
-        except Exception:
+        except Exception as e:
+            raise e
             return Response({
                 "error": True,
                 "message": "An error has occurred.",
