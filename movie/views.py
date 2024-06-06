@@ -21,7 +21,7 @@ class MovieView(APIView):
     def get(self, request):
         try:
             # if search query is provided, fetch themoviedb api
-            search_query = request.GET.get('query')
+            search_query = request.GET.get('search')
             if search_query:
                 tmdb_api_url = "https://api.themoviedb.org/3"
                 url = f"{tmdb_api_url}/search/movie?query={search_query}"
