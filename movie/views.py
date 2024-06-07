@@ -247,8 +247,7 @@ class PlaylistDetailView(APIView):
                             "Authorization": f"Bearer {API_KEY}"
                         }
 
-                    url_tmdb_movie_detail = f"{TMDB_API_URL}/movie/{movie_id}"
-                    + f"?api_key={API_KEY}&language=en-US"
+                    url_tmdb_movie_detail = f"{TMDB_API_URL}/movie/{movie_id}?api_key={API_KEY}&language=en-US"
                     response_movie_detail = get(url_tmdb_movie_detail,
                                                 headers=headers)
                     movie_detail_data = response_movie_detail.json()
@@ -262,8 +261,7 @@ class PlaylistDetailView(APIView):
                             "message": f"TMDB: {error_message}",
                         }, status.HTTP_502_BAD_GATEWAY)
 
-                    url_tmdb_movie_credits = f"{TMDB_API_URL}/movie/{movie_id}"
-                    + f"/credits?api_key={API_KEY}"
+                    url_tmdb_movie_credits = f"{TMDB_API_URL}/movie/{movie_id}/credits?api_key={API_KEY}"
                     response_movie_credits = get(url_tmdb_movie_credits,
                                                  headers=headers)
                     movie_credits_data = response_movie_credits.json() \
