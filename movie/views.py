@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from .models import Movie, Playlist, PlaylistMovie
+from user.models import UserActivity
 from .serializers import (
         MovieSerializer,
         PlaylistSerializer,
@@ -189,92 +190,119 @@ class PlaylistDetailView(APIView):
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def patch(self, request, pk):
-            try:
-                playlist = Playlist.objects.get(pk=pk)
+        try:
+            playlist = Playlist.objects.get(pk=pk)
 
-                # Check if user is the owner of the playlist
-                if playlist.user != request.user:
-                    return Response({
-                        "error": True,
-                        "message": "You do not have permission to edit this playlist.",
-                    }, status=status.HTTP_403_FORBIDDEN)
-
-
-                data = request.data
-
-                # Update title and description
-                playlist.title = data.get('title', playlist.title)
-                playlist.description = data.get('description', playlist.description)
-                playlist.save()
-
-                # Add new movies
-                new_movies = data.get('new_movie_tmdb_id', [])
-                for movie_id in new_movies:
-                    try:
-                        movie = Movie.objects.get(tmdb_id=movie_id)
-                        PlaylistMovie.objects.get_or_create(playlist=playlist, movie=movie)
-                    except Movie.DoesNotExist:
-                        headers = {
-                                "accept": "application/json",
-                                "Authorization": f"Bearer {API_KEY}"
-                            }
-
-                        url_tmdb_movie_detail = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={API_KEY}&language=en-US"
-                        response_movie_detail = get(url_tmdb_movie_detail, headers=headers)
-                        movie_detail_data = response_movie_detail.json()
-
-                        # return 502 if TMDB API is down
-                        if response_movie_detail.status_code == 404 or response_movie_detail.status_code == 401 or response_movie_detail.status_code != 200:
-                            return Response({
-                                "error": True,
-                                "message": f"TMDB :{response_movie_detail.json().get('status_message')} ",
-                            }, status.HTTP_502_BAD_GATEWAY)
-
-                        url_tmdb_movie_credits = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={API_KEY}"
-                        response_movie_credits = get(url_tmdb_movie_credits, headers=headers)
-                        movie_credits_data = response_movie_credits.json().get('crew', [])
-
-                        for crew in movie_credits_data:
-                            if crew['job'] == 'Director':
-                                director = crew['name']
-                                break
-
-                        movie = Movie.objects.create(
-                            tmdb_id=movie_detail_data["id"],
-                            title=movie_detail_data["title"],
-                            poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
-                            description=movie_detail_data["overview"],
-                            director=director,
-                            release_date=movie_detail_data["release_date"],
-                            rating=0.0
-                        )
-                        PlaylistMovie.objects.get_or_create(playlist=playlist, movie=movie)
-
-                # Delete movies
-                delete_movies = data.get('delete_movie_tmdb_id', [])
-                for movie_id in delete_movies:
-                    try:
-                        movie = Movie.objects.get(tmdb_id=movie_id)
-                        PlaylistMovie.objects.filter(
-                                playlist=playlist, movie=movie
-                                ).delete()
-                    except Movie.DoesNotExist:
-                        continue
-
-                serializer = PlaylistSerializer(playlist)
-                return Response(serializer.data)
-            except Playlist.DoesNotExist:
+            # Check if user is the owner of the playlist
+            if playlist.user != request.user:
                 return Response({
                     "error": True,
-                    "message": "Playlist not found.",
-                }, status.HTTP_404_NOT_FOUND)
-            except Exception as e:
-                return Response({
-                    "error": True,
-                    "message": "An error has occured.",
-                    "Exception": e,
+                    "message": "You do not have permission to edit this playlist.",
+                }, status=status.HTTP_403_FORBIDDEN)
 
-                }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+            data = request.data
+
+            # Update title and description
+            playlist.title = data.get('title', playlist.title)
+            playlist.description = data.get('description',
+                                            playlist.description)
+            playlist.save()
+
+            # Add new movies
+            new_movies = data.get('new_movie_tmdb_id', [])
+            for movie_id in new_movies:
+                movie_title = ""
+                try:
+                    movie = Movie.objects.get(tmdb_id=movie_id)
+                    PlaylistMovie.objects.get_or_create(playlist=playlist,
+                                                        movie=movie)
+                    movie_title = movie.title
+                except Movie.DoesNotExist:
+                    headers = {
+                            "accept": "application/json",
+                            "Authorization": f"Bearer {API_KEY}"
+                        }
+
+                    url_tmdb_movie_detail = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={API_KEY}&language=en-US"
+                    response_movie_detail = get(url_tmdb_movie_detail,
+                                                headers=headers)
+                    movie_detail_data = response_movie_detail.json()
+
+                    # return 502 if TMDB API is down
+                    if (response_movie_detail.status_code in (401, 404) or
+                            response_movie_detail.status_code != 200):
+                        error_message = movie_detail_data.get('status_message')
+                        return Response({
+                            "error": True,
+                            "message": f"TMDB: {error_message}",
+                        }, status.HTTP_502_BAD_GATEWAY)
+
+                    url_tmdb_movie_credits = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={API_KEY}"
+                    response_movie_credits = get(url_tmdb_movie_credits,
+                                                 headers=headers)
+                    movie_credits_data = response_movie_credits.json().get('crew', [])
+
+                    for crew in movie_credits_data:
+                        if crew['job'] == 'Director':
+                            director = crew['name']
+                            break
+
+                    movie = Movie.objects.create(
+                        tmdb_id=movie_detail_data["id"],
+                        title=movie_detail_data["title"],
+                        poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
+                        description=movie_detail_data["overview"],
+                        director=director,
+                        release_date=movie_detail_data["release_date"],
+                        rating=0.0
+                    )
+                    PlaylistMovie.objects.get_or_create(playlist=playlist,
+                                                        movie=movie)
+                    movie_title = movie.title
+
+                finally:
+                    description = f"{request.user} added {movie_title} to their"
+                    activity_type = ""
+                    if playlist.is_favorite:
+                        description += " liked movies"
+                        activity_type = "LIKED_MOVIE"
+                    else:
+                        description += " playlist"
+                        activity_type = "ADDED_MOVIE_TO_PLAYLIST"
+
+                    UserActivity.objects.create(
+                        username=request.user,
+                        movie_tmdb_id=movie_id,
+                        description=description,
+                        type=activity_type
+                    )
+
+
+            # Delete movies
+            delete_movies = data.get('delete_movie_tmdb_id', [])
+            for movie_id in delete_movies:
+                try:
+                    movie = Movie.objects.get(tmdb_id=movie_id)
+                    PlaylistMovie.objects.filter(
+                            playlist=playlist, movie=movie
+                            ).delete()
+                except Movie.DoesNotExist:
+                    continue
+
+            serializer = PlaylistSerializer(playlist)
+            return Response(serializer.data)
+        except Playlist.DoesNotExist:
+            return Response({
+                "error": True,
+                "message": "Playlist not found.",
+            }, status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+                "Exception": e,
+
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, pk):
         try:

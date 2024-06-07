@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorator import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import CustomUser, UserFollowing, UserActivity
@@ -198,6 +198,7 @@ def getActivities(request):
             'following_user__username')
     activities = UserActivity.objects.filter(username__in=followed_users)
     serialized = UserActivitySerializer(activities, many=True)
+
     return Response({
                 "error": False,
                 "activities": serialized.data
