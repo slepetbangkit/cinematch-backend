@@ -14,6 +14,7 @@ from .serializers import (
         UserFollowingSerializer,
         UserFollowingListSerializer,
         UserFollowerListSerializer,
+        UserActivitySerializer,
 )
 
 
