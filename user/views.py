@@ -3,9 +3,10 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorator import api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import CustomUser, UserFollowing
+from .models import CustomUser, UserFollowing, UserActivity
 from .serializers import (
         MyTokenObtainPairSerializer,
         RegisterSerializer,
@@ -140,6 +141,12 @@ class UserFollowingView(APIView):
                           "following_user": following_user.id})
             if serializer.is_valid():
                 serializer.save()
+                UserActivity.objects.create(
+                    username=user,
+                    type="FOLLOWED_USER",
+                    followed_username=following_user,
+                    description=f"{user.username} has started following {username}"
+                )
                 return Response({
                     "error": False,
                     "message": "Successfully followed user.",
@@ -181,3 +188,16 @@ class UserFollowingView(APIView):
                 "error": True,
                 "message": "An error has occured.",
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getActivities(request):
+    followed_users = UserFollowing.objects.filter(user=request.user).values_list(
+            'following_user__username')
+    activities = UserActivity.objects.filter(username__in=followed_users)
+    serialized = UserActivitySerializer(activities, many=True)
+    return Response({
+                "error": False,
+                "activities": serialized.data
+    })
