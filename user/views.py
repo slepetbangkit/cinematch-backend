@@ -106,13 +106,24 @@ class UserFollowingView(APIView):
     def get(self, request, username):
         try:
             user = CustomUser.objects.get(username=username)
-            followings = UserFollowing.objects.filter(user=user)
-            followers = UserFollowing.objects.filter(following_user=user)
-            data = {"following_count": user.following_count,
-                    "follower_count": user.follower_count,
-                    "followings": UserFollowingListSerializer(followings, many=True).data,
-                    "followers": UserFollowerListSerializer(followers, many=True).data,
-                    }
+            followings_serialized = UserFollowingListSerializer(
+                                        UserFollowing.objects.filter(
+                                            user=user
+                                        ),
+                                        many=True
+                                    )
+            followers_serialized = UserFollowerListSerializer(
+                                        UserFollowing.objects.filter(
+                                            following_user=user
+                                        ),
+                                        many=True
+                                   )
+            data = {
+                "following_count": user.following_count,
+                "follower_count": user.follower_count,
+                "followings": followings_serialized.data,
+                "followers": followers_serialized.data,
+            }
             return Response(data)
 
         except CustomUser.DoesNotExist:
@@ -171,10 +182,10 @@ class UserFollowingView(APIView):
         try:
             user = request.user
             following_user = CustomUser.objects.get(username=username)
-            UserFollowingSerializer.delete(self,
-                                           data={"user": user,
-                                                 "following_user": following_user
-                                                 })
+            UserFollowingSerializer.delete(self, data={
+                "user": user,
+                "following_user": following_user
+            })
             return Response({
                 "error": False,
                 "message": "Successfully unfollowed user.",
@@ -194,9 +205,10 @@ class UserFollowingView(APIView):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def getActivities(request):
-    followed_users = UserFollowing.objects.filter(user=request.user).values_list(
-            'following_user__username')
-    activities = UserActivity.objects.filter(username__in=followed_users)
+    followed_users = UserFollowing.objects.filter(user=request.user) \
+        .values_list('following_user__username')
+    activities = UserActivity.objects.filter(username__in=followed_users) \
+        .order_by("-created_at")[:20]
     serialized = UserActivitySerializer(activities, many=True)
 
     return Response({

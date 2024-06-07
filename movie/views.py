@@ -14,6 +14,7 @@ from requests import get
 import os
 
 API_KEY = os.getenv('TMDB_API_KEY')
+TMDB_API_URL = "https://api.themoviedb.org/3"
 
 
 class MovieView(APIView):
@@ -24,8 +25,7 @@ class MovieView(APIView):
             # if search query is provided, fetch themoviedb api
             search_query = request.GET.get('search')
             if search_query:
-                tmdb_api_url = "https://api.themoviedb.org/3"
-                url = f"{tmdb_api_url}/search/movie?query={search_query}"
+                url = f"{TMDB_API_URL}/search/movie?query={search_query}"
                 headers = {
                     "accept": "application/json",
                     "Authorization": f"Bearer {API_KEY}"
@@ -34,19 +34,26 @@ class MovieView(APIView):
                 response = get(url, headers=headers)
 
                 # return 502 if TMDB API is down
-                if response.status_code in [401, 404] or response.status_code != 200:
+                if (response.status_code in [401, 404]
+                        or response.status_code != 200):
+                    error_message = response.json().get('status_message')
                     return Response({
                         "error": True,
-                        "message": f"TMDB :{response.json().get('status_message')} ",
+                        "message": f"TMDB :{error_message}",
                     }, status.HTTP_502_BAD_GATEWAY)
 
                 results = []
                 movies = response.json()["results"]
                 for movie in movies:
                     id = movie["id"]
-                    movie_credits_url = f"{tmdb_api_url}/movie/{id}/credits?api_key={API_KEY}"
-                    response_movie_credits = get(movie_credits_url, headers=headers)
-                    movie_credits_data = response_movie_credits.json().get('crew', [])
+                    movie_credits_url = f"{TMDB_API_URL}/movie/{id}" \
+                                        + f"/credits?api_key={API_KEY}"
+                    response_movie_credits = get(
+                            movie_credits_url,
+                            headers=headers
+                    )
+                    movie_credits_data = response_movie_credits.json() \
+                        .get('crew', [])
 
                     for crew in movie_credits_data:
                         if crew['job'] == 'Director':
@@ -56,7 +63,8 @@ class MovieView(APIView):
                     results.append({
                         "tmdb_id": id,
                         "title": movie["title"],
-                        "poster_url": f"https://image.tmdb.org/t/p/original/{movie['poster_path']}",
+                        "poster_url": "https://image.tmdb.org/t/p/original/"
+                                      + f"{movie['poster_path']}",
                         "description": movie["overview"],
                         "director": director,
                         "release_date": movie["release_date"],
@@ -121,7 +129,11 @@ class MovieView(APIView):
     def patch(self, request):
         try:
             movie = Movie.objects.get(pk=request.data['id'])
-            serializer = MovieSerializer(movie, data=request.data, partial=True)
+            serializer = MovieSerializer(
+                    movie,
+                    data=request.data,
+                    partial=True
+            )
             if serializer.is_valid():
                 serializer.save()
                 return Response({
@@ -143,6 +155,7 @@ class MovieView(APIView):
                 "message": "An error has occured.",
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 class PlaylistView(APIView):
     permission_classes = (IsAuthenticated,)
 
@@ -159,16 +172,26 @@ class PlaylistView(APIView):
 
     def post(self, request):
         try:
-            serializer = PlaylistSerializer(data=request.data, context={'request': request})
+            serializer = PlaylistSerializer(
+                    data=request.data,
+                    context={'request': request}
+            )
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                        serializer.data,
+                        status=status.HTTP_201_CREATED
+                )
+            return Response(
+                    serializer.errors,
+                    status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occured.",
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class PlaylistDetailView(APIView):
     permission_classes = (IsAuthenticated,)
@@ -195,9 +218,10 @@ class PlaylistDetailView(APIView):
 
             # Check if user is the owner of the playlist
             if playlist.user != request.user:
+                message = "You do not have permission to edit this playlist."
                 return Response({
                     "error": True,
-                    "message": "You do not have permission to edit this playlist.",
+                    "message": message,
                 }, status=status.HTTP_403_FORBIDDEN)
 
             data = request.data
@@ -223,7 +247,8 @@ class PlaylistDetailView(APIView):
                             "Authorization": f"Bearer {API_KEY}"
                         }
 
-                    url_tmdb_movie_detail = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={API_KEY}&language=en-US"
+                    url_tmdb_movie_detail = f"{TMDB_API_URL}/movie/{movie_id}"
+                    + f"?api_key={API_KEY}&language=en-US"
                     response_movie_detail = get(url_tmdb_movie_detail,
                                                 headers=headers)
                     movie_detail_data = response_movie_detail.json()
@@ -237,10 +262,12 @@ class PlaylistDetailView(APIView):
                             "message": f"TMDB: {error_message}",
                         }, status.HTTP_502_BAD_GATEWAY)
 
-                    url_tmdb_movie_credits = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={API_KEY}"
+                    url_tmdb_movie_credits = f"{TMDB_API_URL}/movie/{movie_id}"
+                    + f"/credits?api_key={API_KEY}"
                     response_movie_credits = get(url_tmdb_movie_credits,
                                                  headers=headers)
-                    movie_credits_data = response_movie_credits.json().get('crew', [])
+                    movie_credits_data = response_movie_credits.json() \
+                        .get('crew', [])
 
                     for crew in movie_credits_data:
                         if crew['job'] == 'Director':
@@ -250,7 +277,8 @@ class PlaylistDetailView(APIView):
                     movie = Movie.objects.create(
                         tmdb_id=movie_detail_data["id"],
                         title=movie_detail_data["title"],
-                        poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
+                        poster_url="https://image.tmdb.org/t/p/original/"
+                                   + f"{movie_detail_data['poster_path']}",
                         description=movie_detail_data["overview"],
                         director=director,
                         release_date=movie_detail_data["release_date"],
@@ -261,13 +289,13 @@ class PlaylistDetailView(APIView):
                     movie_title = movie.title
 
                 finally:
-                    description = f"{request.user} added {movie_title} to their"
+                    description = f"{request.user} added {movie_title} "
                     activity_type = ""
                     if playlist.is_favorite:
-                        description += " liked movies"
+                        description += "to their liked movies"
                         activity_type = "LIKED_MOVIE"
                     else:
-                        description += " playlist"
+                        description += "to their playlist"
                         activity_type = "ADDED_MOVIE_TO_PLAYLIST"
 
                     UserActivity.objects.create(
@@ -276,7 +304,6 @@ class PlaylistDetailView(APIView):
                         description=description,
                         type=activity_type
                     )
-
 
             # Delete movies
             delete_movies = data.get('delete_movie_tmdb_id', [])
@@ -309,10 +336,11 @@ class PlaylistDetailView(APIView):
             playlist = Playlist.objects.get(pk=pk)
 
             # Check if user is the owner of the playlist
+            message = "You do not have permission to delete this playlist."
             if playlist.user != request.user:
                 return Response({
                     "error": True,
-                    "message": "You do not have permission to delete this playlist.",
+                    "message": message,
                 }, status=status.HTTP_403_FORBIDDEN)
             playlist.delete()
             return Response(
