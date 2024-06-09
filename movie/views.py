@@ -143,7 +143,7 @@ class MovieView(APIView):
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class MovieDetailTMDBView(APIView):
-    # permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request, pk):
         try:
