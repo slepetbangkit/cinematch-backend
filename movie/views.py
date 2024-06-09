@@ -24,7 +24,7 @@ class MovieView(APIView):
             search_query = request.GET.get('search')
             if search_query:
                 tmdb_api_url = "https://api.themoviedb.org/3"
-                url = f"{tmdb_api_url}/search/movie?query={search_query}"
+                url = f"{tmdb_api_url}/search/movie?query={search_query}&api_key={API_KEY}"
                 headers = {
                     "accept": "application/json",
                     "Authorization": f"Bearer {API_KEY}"
@@ -140,6 +140,100 @@ class MovieView(APIView):
             return Response({
                 "error": True,
                 "message": "An error has occured.",
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class MovieDetailTMDBView(APIView):
+    # permission_classes = (IsAuthenticated,)
+
+    def get(self, request, pk):
+        try:
+            headers = {
+                    "accept": "application/json",
+                    "Authorization": f"Bearer {API_KEY}"
+                }
+
+            url = f"https://api.themoviedb.org/3/movie/{pk}?api_key={API_KEY}&append_to_response=videos,credits,similar"
+            response = get(url, headers=headers)
+
+            # return 502 if TMDB API is down
+            if response.status_code == 404 or response.status_code == 401 or response.status_code != 200:
+                return Response({
+                    "error": True,
+                    "message": f"TMDB :{response.json().get('status_message')} ",
+                }, status.HTTP_502_BAD_GATEWAY)
+            
+            movie = response.json()
+
+            # Get director
+            movie_credits_data = movie.get('credits', {}).get('crew', [])
+            for crew in movie_credits_data:
+                if crew['job'] == 'Director':
+                    director = crew['name']
+                    break
+
+            # Get trailer link
+            trailer_link = None
+            for video in movie.get('videos', {}).get('results', []):
+                if (video['site'] == 'YouTube' and video['type'] == 'Trailer'):
+                    trailer_link = f"https://www.youtube.com/watch?v={video['key']}"
+                    break
+
+            # Get cast ( name, char, poster )
+            cast = []
+            for actor in movie.get('credits', {}).get('cast', [])[:5]:
+                cast.append({
+                    "name": actor['name'],
+                    "character": actor['character'],
+                    "profile_url": f"https://image.tmdb.org/t/p/original/{actor['profile_path']}",
+                })
+
+            # Get crew ( name, char, poster )
+            crew = []
+            for crew_member in movie.get('credits', {}).get('crew', [])[:5]:
+                crew.append({
+                    "name": crew_member['name'],
+                    "job": crew_member['job'],
+                    "profile_url": f"https://image.tmdb.org/t/p/original/{crew_member['profile_path']}",
+                })
+
+            # Get similar movies
+            similar_movies = []
+            for similar_movie in movie.get('similar', {}).get('results', [])[:5]:
+                similar_movies.append({
+                    "tmdb_id": similar_movie['id'],
+                    "title": similar_movie['title'],
+                    "poster_url": f"https://image.tmdb.org/t/p/original/{similar_movie['poster_path']}",
+                })
+            
+            # rating from our db
+            
+            try:
+                movie_temp = Movie.objects.get(tmdb_id=pk)
+                serializer = MovieSerializer(movie_temp)
+                rating = serializer.data['rating']
+            except Movie.DoesNotExist:
+                rating = 0.0
+
+            movie = {
+                "tmdb_id": movie["id"],
+                "title": movie["title"],
+                "poster_url": f"https://image.tmdb.org/t/p/original/{movie['poster_path']}",
+                "description": movie["overview"],
+                "director": director,
+                "release_date": movie["release_date"],
+                "rating": rating,
+                "trailer_link": trailer_link,
+                "cast": cast,
+                "crew": crew,
+                "similar_movies": similar_movies,
+            }
+            
+            return Response(movie)
+        except Exception:
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+                "Exception": Exception,
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PlaylistView(APIView):
