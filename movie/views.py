@@ -1,0 +1,396 @@
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from .models import Movie, Playlist, PlaylistMovie
+from .serializers import (
+        MovieSerializer,
+        PlaylistSerializer,
+)
+
+from requests import get
+import os
+
+API_KEY = os.getenv('TMDB_API_KEY')
+
+
+class MovieView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        try:
+            # if search query is provided, fetch themoviedb api
+            search_query = request.GET.get('search')
+            if search_query:
+                tmdb_api_url = "https://api.themoviedb.org/3"
+                url = f"{tmdb_api_url}/search/movie?query={search_query}&api_key={API_KEY}"
+                headers = {
+                    "accept": "application/json",
+                    "Authorization": f"Bearer {API_KEY}"
+                }
+
+                response = get(url, headers=headers)
+
+                # return 502 if TMDB API is down
+                if response.status_code in [401, 404] or response.status_code != 200:
+                    return Response({
+                        "error": True,
+                        "message": f"TMDB :{response.json().get('status_message')} ",
+                    }, status.HTTP_502_BAD_GATEWAY)
+
+                results = []
+                movies = response.json()["results"]
+                for movie in movies:
+                    id = movie["id"]
+                    movie_credits_url = f"{tmdb_api_url}/movie/{id}/credits?api_key={API_KEY}"
+                    response_movie_credits = get(movie_credits_url, headers=headers)
+                    movie_credits_data = response_movie_credits.json().get('crew', [])
+
+                    for crew in movie_credits_data:
+                        if crew['job'] == 'Director':
+                            director = crew['name']
+                            break
+
+                    results.append({
+                        "tmdb_id": id,
+                        "title": movie["title"],
+                        "poster_url": f"https://image.tmdb.org/t/p/original/{movie['poster_path']}",
+                        "description": movie["overview"],
+                        "director": director,
+                        "release_date": movie["release_date"],
+                        "rating": 0.0,
+                    })
+
+                return Response(
+                    results
+                )
+
+            # else, return movies already saved in the backend database
+            movies = Movie.objects.all()
+            serializer = MovieSerializer(movies, many=True)
+            return Response(serializer.data)
+
+        except Exception as e:
+            raise e
+            return Response({
+                "error": True,
+                "message": "An error has occurred.",
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def post(self, request):
+        try:
+            serializer = MovieSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "error": False,
+                    "message": "Successfully added movie.",
+                }, status.HTTP_201_CREATED)
+            return Response({
+                "error": True,
+                'message': serializer.errors,
+            }, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+                "Exception": Exception,
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def delete(self, request):
+        try:
+            movie = Movie.objects.get(pk=request.data['id'])
+            movie.delete()
+            return Response({
+                "error": False,
+                "message": "Successfully deleted movie.",
+            }, status.HTTP_200_OK)
+        except Movie.DoesNotExist:
+            return Response({
+                "error": True,
+                "message": "Movie not found.",
+            }, status.HTTP_404_NOT_FOUND)
+        except Exception:
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def patch(self, request):
+        try:
+            movie = Movie.objects.get(pk=request.data['id'])
+            serializer = MovieSerializer(movie, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "error": False,
+                    "message": "Successfully updated movie.",
+                }, status.HTTP_200_OK)
+            return Response({
+                "error": True,
+                'message': serializer.errors,
+            }, status.HTTP_400_BAD_REQUEST)
+        except Movie.DoesNotExist:
+            return Response({
+                "error": True,
+                "message": "Movie not found.",
+            }, status.HTTP_404_NOT_FOUND)
+        except Exception:
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class MovieDetailTMDBView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, pk):
+        try:
+            headers = {
+                    "accept": "application/json",
+                    "Authorization": f"Bearer {API_KEY}"
+                }
+
+            url = f"https://api.themoviedb.org/3/movie/{pk}?api_key={API_KEY}&append_to_response=videos,credits,similar"
+            response = get(url, headers=headers)
+
+            # return 502 if TMDB API is down
+            if response.status_code == 404 or response.status_code == 401 or response.status_code != 200:
+                return Response({
+                    "error": True,
+                    "message": f"TMDB :{response.json().get('status_message')} ",
+                }, status.HTTP_502_BAD_GATEWAY)
+            
+            movie = response.json()
+
+            # Get director
+            movie_credits_data = movie.get('credits', {}).get('crew', [])
+            for crew in movie_credits_data:
+                if crew['job'] == 'Director':
+                    director = crew['name']
+                    break
+
+            # Get trailer link
+            trailer_link = None
+            for video in movie.get('videos', {}).get('results', []):
+                if (video['site'] == 'YouTube' and video['type'] == 'Trailer'):
+                    trailer_link = f"https://www.youtube.com/watch?v={video['key']}"
+                    break
+
+            # Get cast ( name, char, poster )
+            cast = []
+            for actor in movie.get('credits', {}).get('cast', [])[:5]:
+                cast.append({
+                    "name": actor['name'],
+                    "character": actor['character'],
+                    "profile_url": f"https://image.tmdb.org/t/p/original/{actor['profile_path']}",
+                })
+
+            # Get crew ( name, char, poster )
+            crew = []
+            for crew_member in movie.get('credits', {}).get('crew', [])[:5]:
+                crew.append({
+                    "name": crew_member['name'],
+                    "job": crew_member['job'],
+                    "profile_url": f"https://image.tmdb.org/t/p/original/{crew_member['profile_path']}",
+                })
+
+            # Get similar movies
+            similar_movies = []
+            for similar_movie in movie.get('similar', {}).get('results', [])[:5]:
+                similar_movies.append({
+                    "tmdb_id": similar_movie['id'],
+                    "title": similar_movie['title'],
+                    "poster_url": f"https://image.tmdb.org/t/p/original/{similar_movie['poster_path']}",
+                })
+            
+            # rating from our db
+            
+            try:
+                movie_temp = Movie.objects.get(tmdb_id=pk)
+                serializer = MovieSerializer(movie_temp)
+                rating = serializer.data['rating']
+            except Movie.DoesNotExist:
+                rating = 0.0
+
+            movie = {
+                "tmdb_id": movie["id"],
+                "title": movie["title"],
+                "poster_url": f"https://image.tmdb.org/t/p/original/{movie['poster_path']}",
+                "description": movie["overview"],
+                "director": director,
+                "release_date": movie["release_date"],
+                "rating": rating,
+                "trailer_link": trailer_link,
+                "cast": cast,
+                "crew": crew,
+                "similar_movies": similar_movies,
+            }
+            
+            return Response(movie)
+        except Exception:
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+                "Exception": Exception,
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class PlaylistView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        try:
+            playlists = Playlist.objects.filter(user=request.user)
+            serializer = PlaylistSerializer(playlists, many=True)
+            return Response(serializer.data)
+        except Exception:
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def post(self, request):
+        try:
+            serializer = PlaylistSerializer(data=request.data, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class PlaylistDetailView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, pk):
+        try:
+            playlist = Playlist.objects.get(pk=pk)
+            serializer = PlaylistSerializer(playlist)
+            return Response(serializer.data)
+        except Playlist.DoesNotExist:
+            return Response({
+                "error": True,
+                "message": "Playlist not found.",
+            }, status.HTTP_404_NOT_FOUND)
+        except Exception:
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def patch(self, request, pk):
+            try:
+                playlist = Playlist.objects.get(pk=pk)
+
+                # Check if user is the owner of the playlist
+                if playlist.user != request.user:
+                    return Response({
+                        "error": True,
+                        "message": "You do not have permission to edit this playlist.",
+                    }, status=status.HTTP_403_FORBIDDEN)
+
+
+                data = request.data
+
+                # Update title and description
+                playlist.title = data.get('title', playlist.title)
+                playlist.description = data.get('description', playlist.description)
+                playlist.save()
+
+                # Add new movies
+                new_movies = data.get('new_movie_tmdb_id', [])
+                for movie_id in new_movies:
+                    try:
+                        movie = Movie.objects.get(tmdb_id=movie_id)
+                        PlaylistMovie.objects.get_or_create(playlist=playlist, movie=movie)
+                    except Movie.DoesNotExist:
+                        headers = {
+                                "accept": "application/json",
+                                "Authorization": f"Bearer {API_KEY}"
+                            }
+
+                        url_tmdb_movie_detail = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={API_KEY}&language=en-US"
+                        response_movie_detail = get(url_tmdb_movie_detail, headers=headers)
+                        movie_detail_data = response_movie_detail.json()
+
+                        # return 502 if TMDB API is down
+                        if response_movie_detail.status_code == 404 or response_movie_detail.status_code == 401 or response_movie_detail.status_code != 200:
+                            return Response({
+                                "error": True,
+                                "message": f"TMDB :{response_movie_detail.json().get('status_message')} ",
+                            }, status.HTTP_502_BAD_GATEWAY)
+
+                        url_tmdb_movie_credits = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={API_KEY}"
+                        response_movie_credits = get(url_tmdb_movie_credits, headers=headers)
+                        movie_credits_data = response_movie_credits.json().get('crew', [])
+
+                        for crew in movie_credits_data:
+                            if crew['job'] == 'Director':
+                                director = crew['name']
+                                break
+
+                        movie = Movie.objects.create(
+                            tmdb_id=movie_detail_data["id"],
+                            title=movie_detail_data["title"],
+                            poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
+                            description=movie_detail_data["overview"],
+                            director=director,
+                            release_date=movie_detail_data["release_date"],
+                            rating=0.0
+                        )
+                        PlaylistMovie.objects.get_or_create(playlist=playlist, movie=movie)
+
+                # Delete movies
+                delete_movies = data.get('delete_movie_tmdb_id', [])
+                for movie_id in delete_movies:
+                    try:
+                        movie = Movie.objects.get(tmdb_id=movie_id)
+                        PlaylistMovie.objects.filter(
+                                playlist=playlist, movie=movie
+                                ).delete()
+                    except Movie.DoesNotExist:
+                        continue
+
+                serializer = PlaylistSerializer(playlist)
+                return Response(serializer.data)
+            except Playlist.DoesNotExist:
+                return Response({
+                    "error": True,
+                    "message": "Playlist not found.",
+                }, status.HTTP_404_NOT_FOUND)
+            except Exception as e:
+                return Response({
+                    "error": True,
+                    "message": "An error has occured.",
+                    "Exception": e,
+
+                }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def delete(self, request, pk):
+        try:
+            playlist = Playlist.objects.get(pk=pk)
+
+            # Check if user is the owner of the playlist
+            if playlist.user != request.user:
+                return Response({
+                    "error": True,
+                    "message": "You do not have permission to delete this playlist.",
+                }, status=status.HTTP_403_FORBIDDEN)
+            playlist.delete()
+            return Response(
+                    {"message": "Playlist deleted successfully."},
+                    status=status.HTTP_204_NO_CONTENT)
+        except Playlist.DoesNotExist:
+            return Response({
+                "error": True,
+                "message": "Playlist not found.",
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception:
+            return Response({
+                "error": True,
+                "message": "An error has occurred.",
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
