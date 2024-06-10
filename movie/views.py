@@ -3,11 +3,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .models import Movie, Playlist, PlaylistMovie
+from .models import Movie, Playlist, PlaylistMovie, Review
 from user.models import UserActivity
 from .serializers import (
         MovieSerializer,
         PlaylistSerializer,
+        ReviewSerializer,
 )
 
 from requests import get
@@ -221,9 +222,8 @@ class MovieDetailTMDBView(APIView):
 
             # rating from our db
             try:
-                movie_temp = Movie.objects.get(tmdb_id=pk)
-                serializer = MovieSerializer(movie_temp)
-                rating = serializer.data['rating']
+                movie = Movie.objects.get(tmdb_id=pk)
+                rating = movie.rating
             except Movie.DoesNotExist:
                 rating = 0.0
 
@@ -241,7 +241,7 @@ class MovieDetailTMDBView(APIView):
                 "similar_movies": similar_movies,
             }
 
-            return Response(movie)
+            return Response(movie, status.HTTP_200_OK)
         except Exception:
             return Response({
                 "error": True,
@@ -448,3 +448,103 @@ class PlaylistDetailView(APIView):
                 "error": True,
                 "message": "An error has occurred.",
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ReviewView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, pk):
+        try:
+            movie = Movie.objects.get(tmdb_id=pk)
+            reviews = Review.objects.filter(movie=movie)
+            return Response({
+                "error": False,
+                "movie": {
+                    "title": movie.title,
+                    "release_date": movie.release_date,
+                },
+                "reviews": ReviewSerializer(reviews, many=True).data
+            }, status.HTTP_200_OK)
+        except Movie.DoesNotExist:
+            return Response({
+                "error": False,
+                "reviews": [],
+            }, status.HTTP_200_OK)
+
+    def post(self, request, pk):
+        try:
+            movie = Movie.objects.get(tmdb_id=pk)
+        except Movie.DoesNotExist:
+            headers = {
+                    "accept": "application/json",
+                    "Authorization": f"Bearer {API_KEY}"
+                }
+
+            url_tmdb_movie_detail = f"{TMDB_API_URL}/movie/{pk}?api_key={API_KEY}&language=en-US"
+            response_movie_detail = get(url_tmdb_movie_detail, headers=headers)
+            movie_detail_data = response_movie_detail.json()
+
+            # return 502 if TMDB API is down
+            if response_movie_detail.status_code == 404 or response_movie_detail.status_code == 401 or response_movie_detail.status_code != 200:
+                return Response({
+                    "error": True,
+                    "message": f"TMDB :{response_movie_detail.json().get('status_message')} ",
+                }, status.HTTP_502_BAD_GATEWAY)
+
+            url_tmdb_movie_credits = f"{TMDB_API_URL}/movie/{pk}/credits?api_key={API_KEY}"
+            response_movie_credits = get(url_tmdb_movie_credits, headers=headers)
+            movie_credits_data = response_movie_credits.json().get('crew', [])
+
+            for crew in movie_credits_data:
+                if crew['job'] == 'Director':
+                    director = crew['name']
+                    break
+
+            movie = Movie.objects.create(
+                tmdb_id=movie_detail_data["id"],
+                title=movie_detail_data["title"],
+                poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
+                description=movie_detail_data["overview"],
+                director=director,
+                release_date=movie_detail_data["release_date"],
+                rating=0.0
+            )
+
+        finally:
+            try:
+                description = request.data['description']
+                rating = request.data['rating']
+                serializer = ReviewSerializer(data={
+                    'user': request.user.id,
+                    'movie': movie.id,
+                    'description': description,
+                    'rating': rating,
+                    }, context={'request': request})
+                if serializer.is_valid():
+                    serializer.save()
+                    movie.rating = ((movie.rating * movie.review_count)
+                                    + rating) / (movie.review_count + 1)
+                    movie.review_count += 1
+                    movie.save()
+                    description = f"{request.user.username} left a review on {movie.title}"
+                    activity_type = "REVIEWED_MOVIE"
+                    UserActivity.objects.create(
+                        username=request.user,
+                        movie_tmdb_id=movie.tmdb_id,
+                        description=description,
+                        type=activity_type
+                    )
+                    return Response({
+                        "error": False,
+                        "data": serializer.data
+                    }, status=status.HTTP_201_CREATED)
+                return Response({
+                    "error": True,
+                    "message": serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                raise e
+                return Response({
+                    "error": True,
+                    "message": "An error has occured.",
+                }, status.HTTP_500_INTERNAL_SERVER_ERROR)

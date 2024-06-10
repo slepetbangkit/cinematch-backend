@@ -1,11 +1,9 @@
 from rest_framework.serializers import (
         ModelSerializer,
+        SerializerMethodField,
         ReadOnlyField,
 )
-
-from django.contrib.auth.models import User
-
-from .models import  Movie, Playlist, PlaylistMovie
+from .models import Movie, Playlist, Review
 
 
 class MovieSerializer(ModelSerializer):
@@ -26,3 +24,14 @@ class PlaylistSerializer(ModelSerializer):
         user = self.context['request'].user
         playlist = Playlist.objects.create(user=user, **validated_data)
         return playlist
+
+
+class ReviewSerializer(ModelSerializer):
+    username = SerializerMethodField()
+
+    def get_username(self, obj):
+        return obj.user.username
+
+    class Meta:
+        model = Review
+        fields = ('id', 'description', 'rating', 'username', 'created_at')

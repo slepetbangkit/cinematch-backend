@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MaxValueValidator, MinValueValidator
 import uuid
 
 # add user models
@@ -16,6 +17,7 @@ class Movie(models.Model):
     release_date = models.DateField()
     created_at = models.DateTimeField(auto_now_add=True)
     rating = models.FloatField()
+    review_count = models.IntegerField(default=0)
 
     def __str__(self):
         return self.title
@@ -41,3 +43,23 @@ class PlaylistMovie(models.Model):
 
     class Meta:
         unique_together = ('playlist', 'movie')
+
+
+class Review(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(CustomUser, related_name='reviewer', on_delete=models.CASCADE)
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
+    description = models.CharField(max_length=280)
+    rating = models.FloatField(validators=[
+        MinValueValidator(1.0),
+        MaxValueValidator(5.0)
+    ])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [["user", "movie"]]
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        self.rating = round(self.rating, 2)
+        super(Review, self).save(*args, **kwargs)
