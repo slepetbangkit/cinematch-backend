@@ -1,4 +1,5 @@
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
@@ -210,8 +211,19 @@ def getActivities(request):
     activities = UserActivity.objects.filter(username__in=followed_users) \
         .order_by("-created_at")[:20]
     serialized = UserActivitySerializer(activities, many=True)
-
     return Response({
                 "error": False,
                 "activities": serialized.data
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def searchProfile(request):
+    search_query = request.GET.get('query')
+    user = CustomUser.objects.filter(username__contains=search_query)
+    serializer = ProfileSerializer(user, many=True)
+    return Response({
+                "error": False,
+                "users": serializer.data
     })

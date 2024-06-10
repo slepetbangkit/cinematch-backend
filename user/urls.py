@@ -6,7 +6,8 @@ from .views import (
         RegisterView,
         UserFollowingView,
         ProfileView,
-        getActivities
+        getActivities,
+        searchProfile,
 )
 
 
@@ -17,6 +18,7 @@ urlpatterns = [
 
     path('activities/', getActivities, name='activities'),
 
-    path('profile/<str:username>', ProfileView.as_view(), name='profile'),
-    path('profile/<str:username>/following', UserFollowingView.as_view(), name='following'),
+    path('profile/<str:username>/', ProfileView.as_view(), name='profile'),
+    path('profile/search', searchProfile, name='search_profiles'),
+    path('profile/<str:username>/following/', UserFollowingView.as_view(), name='following'),
 ]
