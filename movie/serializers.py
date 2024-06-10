@@ -1,5 +1,6 @@
 from rest_framework.serializers import (
         ModelSerializer,
+        SerializerMethodField,
         ReadOnlyField,
 )
 from .models import Movie, Playlist, Review
@@ -26,6 +27,11 @@ class PlaylistSerializer(ModelSerializer):
 
 
 class ReviewSerializer(ModelSerializer):
+    username = SerializerMethodField()
+
+    def get_username(self, obj):
+        return obj.user.username
+
     class Meta:
         model = Review
-        fields = '__all__'
+        fields = ('id', 'description', 'rating', 'username', 'created_at')
