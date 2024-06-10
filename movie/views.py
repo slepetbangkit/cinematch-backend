@@ -18,6 +18,43 @@ API_KEY = os.getenv('TMDB_API_KEY')
 TMDB_API_URL = "https://api.themoviedb.org/3"
 
 
+def createMovieFromTMDB(id):
+    headers = {
+            "accept": "application/json",
+            "Authorization": f"Bearer {API_KEY}"
+        }
+
+    url_tmdb_movie_detail = f"{TMDB_API_URL}/movie/{id}?api_key={API_KEY}&language=en-US"
+    response_movie_detail = get(url_tmdb_movie_detail, headers=headers)
+    movie_detail_data = response_movie_detail.json()
+
+    # return 502 if TMDB API is down
+    if (response_movie_detail.status_code in (401, 404) or
+            response_movie_detail.status_code != 200):
+        return Response({
+            "error": True,
+            "message": f"TMDB: {response_movie_detail.json().get('status_message')}",
+        }, status.HTTP_502_BAD_GATEWAY)
+
+    url_tmdb_movie_credits = f"{TMDB_API_URL}/movie/{id}/credits?api_key={API_KEY}"
+    response_movie_credits = get(url_tmdb_movie_credits, headers=headers)
+    movie_credits_data = response_movie_credits.json().get('crew', [])
+
+    for crew in movie_credits_data:
+        if crew['job'] == 'Director':
+            director = crew['name']
+            break
+
+    return Movie.objects.create(
+        tmdb_id=movie_detail_data["id"],
+        title=movie_detail_data["title"],
+        poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
+        description=movie_detail_data["overview"],
+        director=director,
+        release_date=movie_detail_data["release_date"],
+        rating=0.0
+    )
+
 class MovieView(APIView):
     permission_classes = (IsAuthenticated,)
 
@@ -332,57 +369,15 @@ class PlaylistDetailView(APIView):
                 movie_title = ""
                 try:
                     movie = Movie.objects.get(tmdb_id=movie_id)
-                    PlaylistMovie.objects.get_or_create(playlist=playlist,
-                                                        movie=movie)
-                    movie_title = movie.title
                 except Movie.DoesNotExist:
-                    headers = {
-                            "accept": "application/json",
-                            "Authorization": f"Bearer {API_KEY}"
-                        }
-
-                    url_tmdb_movie_detail = f"{TMDB_API_URL}/movie/{movie_id}?api_key={API_KEY}&language=en-US"
-                    response_movie_detail = get(url_tmdb_movie_detail,
-                                                headers=headers)
-                    movie_detail_data = response_movie_detail.json()
-
-                    # return 502 if TMDB API is down
-                    if (response_movie_detail.status_code in (401, 404) or
-                            response_movie_detail.status_code != 200):
-                        error_message = movie_detail_data.get('status_message')
-                        return Response({
-                            "error": True,
-                            "message": f"TMDB: {error_message}",
-                        }, status.HTTP_502_BAD_GATEWAY)
-
-                    url_tmdb_movie_credits = f"{TMDB_API_URL}/movie/{movie_id}/credits?api_key={API_KEY}"
-                    response_movie_credits = get(url_tmdb_movie_credits,
-                                                 headers=headers)
-                    movie_credits_data = response_movie_credits.json() \
-                        .get('crew', [])
-
-                    for crew in movie_credits_data:
-                        if crew['job'] == 'Director':
-                            director = crew['name']
-                            break
-
-                    movie = Movie.objects.create(
-                        tmdb_id=movie_detail_data["id"],
-                        title=movie_detail_data["title"],
-                        poster_url="https://image.tmdb.org/t/p/original/"
-                                   + f"{movie_detail_data['poster_path']}",
-                        description=movie_detail_data["overview"],
-                        director=director,
-                        release_date=movie_detail_data["release_date"],
-                        rating=0.0
-                    )
+                    movie = createMovieFromTMDB(movie_id)
+                finally:
                     PlaylistMovie.objects.get_or_create(playlist=playlist,
                                                         movie=movie)
                     movie_title = movie.title
-
-                finally:
                     description = f"{request.user} added {movie_title} "
                     activity_type = ""
+
                     if playlist.is_favorite:
                         description += "to their liked movies"
                         activity_type = "LIKED_MOVIE"
@@ -475,41 +470,7 @@ class ReviewView(APIView):
         try:
             movie = Movie.objects.get(tmdb_id=pk)
         except Movie.DoesNotExist:
-            headers = {
-                    "accept": "application/json",
-                    "Authorization": f"Bearer {API_KEY}"
-                }
-
-            url_tmdb_movie_detail = f"{TMDB_API_URL}/movie/{pk}?api_key={API_KEY}&language=en-US"
-            response_movie_detail = get(url_tmdb_movie_detail, headers=headers)
-            movie_detail_data = response_movie_detail.json()
-
-            # return 502 if TMDB API is down
-            if response_movie_detail.status_code == 404 or response_movie_detail.status_code == 401 or response_movie_detail.status_code != 200:
-                return Response({
-                    "error": True,
-                    "message": f"TMDB :{response_movie_detail.json().get('status_message')} ",
-                }, status.HTTP_502_BAD_GATEWAY)
-
-            url_tmdb_movie_credits = f"{TMDB_API_URL}/movie/{pk}/credits?api_key={API_KEY}"
-            response_movie_credits = get(url_tmdb_movie_credits, headers=headers)
-            movie_credits_data = response_movie_credits.json().get('crew', [])
-
-            for crew in movie_credits_data:
-                if crew['job'] == 'Director':
-                    director = crew['name']
-                    break
-
-            movie = Movie.objects.create(
-                tmdb_id=movie_detail_data["id"],
-                title=movie_detail_data["title"],
-                poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
-                description=movie_detail_data["overview"],
-                director=director,
-                release_date=movie_detail_data["release_date"],
-                rating=0.0
-            )
-
+            movie = createMovieFromTMDB(pk)
         finally:
             try:
                 description = request.data['description']
@@ -520,6 +481,7 @@ class ReviewView(APIView):
                     'description': description,
                     'rating': rating,
                     }, context={'request': request})
+
                 if serializer.is_valid():
                     serializer.save()
                     movie.rating = ((movie.rating * movie.review_count)
