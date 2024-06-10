@@ -478,8 +478,8 @@ class ReviewView(APIView):
             description = request.data['description']
             rating = request.data['rating']
             serializer = ReviewSerializer(data={
-                'user': request.user,
-                'movie': movie,
+                'user': request.user.id,
+                'movie': movie.id,
                 'description': description,
                 'rating': rating,
             }, context={'request': request})
