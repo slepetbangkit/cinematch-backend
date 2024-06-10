@@ -17,6 +17,7 @@ class Movie(models.Model):
     release_date = models.DateField()
     created_at = models.DateTimeField(auto_now_add=True)
     rating = models.FloatField()
+    review_count = models.IntegerField(default=0)
 
     def __str__(self):
         return self.title
@@ -44,7 +45,7 @@ class PlaylistMovie(models.Model):
         unique_together = ('playlist', 'movie')
 
 
-class MovieReview(models.Model):
+class Review(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(CustomUser, related_name='reviewer', on_delete=models.CASCADE)
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
@@ -55,6 +56,10 @@ class MovieReview(models.Model):
     ])
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = [["user", "movie"]]
+        ordering = ["-created_at"]
+
     def save(self, *args, **kwargs):
-        self.my_float = round(self.my_float, 2)
-        super(MovieReview, self).save(*args, **kwargs)
+        self.rating = round(self.rating, 2)
+        super(Review, self).save(*args, **kwargs)

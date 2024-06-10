@@ -2,10 +2,7 @@ from rest_framework.serializers import (
         ModelSerializer,
         ReadOnlyField,
 )
-
-from django.contrib.auth.models import User
-
-from .models import  Movie, Playlist, PlaylistMovie
+from .models import Movie, Playlist, Review
 
 
 class MovieSerializer(ModelSerializer):
@@ -26,3 +23,9 @@ class PlaylistSerializer(ModelSerializer):
         user = self.context['request'].user
         playlist = Playlist.objects.create(user=user, **validated_data)
         return playlist
+
+
+class ReviewSerializer(ModelSerializer):
+    class Meta:
+        model = Review
+        fields = '__all__'
