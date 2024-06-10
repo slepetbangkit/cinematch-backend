@@ -222,9 +222,8 @@ class MovieDetailTMDBView(APIView):
 
             # rating from our db
             try:
-                movie_temp = Movie.objects.get(tmdb_id=pk)
-                serializer = MovieSerializer(movie_temp)
-                rating = serializer.data['rating']
+                movie = Movie.objects.get(tmdb_id=pk)
+                rating = movie.rating
             except Movie.DoesNotExist:
                 rating = 0.0
 
@@ -242,7 +241,7 @@ class MovieDetailTMDBView(APIView):
                 "similar_movies": similar_movies,
             }
 
-            return Response(movie)
+            return Response(movie, status.HTTP_200_OK)
         except Exception:
             return Response({
                 "error": True,
