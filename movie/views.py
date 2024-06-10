@@ -470,45 +470,45 @@ class ReviewView(APIView):
 
     def post(self, request, pk):
         try:
-            movie = Movie.objects.get(tmdb_id=pk)
-        except Movie.DoesNotExist:
-            movie = createMovieFromTMDB(pk)
-        finally:
-            try:
-                description = request.data['description']
-                rating = request.data['rating']
-                serializer = ReviewSerializer(data={
-                    'user': request.user.id,
-                    'movie': movie.id,
-                    'description': description,
-                    'rating': rating,
-                    }, context={'request': request})
+            movie = Movie.objects.filter(tmdb_id=pk)
+            if movie.exists():
+                movie = movie.first()
+            else:
+                movie = createMovieFromTMDB(pk)
+            description = request.data['description']
+            rating = request.data['rating']
+            serializer = ReviewSerializer(data={
+                'user': request.user.id,
+                'movie': movie.id,
+                'description': description,
+                'rating': rating,
+                }, context={'request': request})
 
-                if serializer.is_valid():
-                    serializer.save()
-                    movie.rating = ((movie.rating * movie.review_count)
-                                    + rating) / (movie.review_count + 1)
-                    movie.review_count += 1
-                    movie.save()
-                    description = f"{request.user.username} left a review on {movie.title}"
-                    activity_type = "REVIEWED_MOVIE"
-                    UserActivity.objects.create(
-                        username=request.user,
-                        movie_tmdb_id=movie.tmdb_id,
-                        description=description,
-                        type=activity_type
-                    )
-                    return Response({
-                        "error": False,
-                        "data": serializer.data
-                    }, status=status.HTTP_201_CREATED)
+            if serializer.is_valid():
+                serializer.save()
+                movie.rating = ((movie.rating * movie.review_count)
+                                + rating) / (movie.review_count + 1)
+                movie.review_count += 1
+                movie.save()
+                description = f"{request.user.username} left a review on {movie.title}"
+                activity_type = "REVIEWED_MOVIE"
+                UserActivity.objects.create(
+                    username=request.user,
+                    movie_tmdb_id=movie.tmdb_id,
+                    description=description,
+                    type=activity_type
+                )
                 return Response({
-                    "error": True,
-                    "message": serializer.errors
-                }, status=status.HTTP_400_BAD_REQUEST)
-            except Exception as e:
-                raise e
-                return Response({
-                    "error": True,
-                    "message": "An error has occured.",
-                }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    "error": False,
+                    "data": serializer.data
+                }, status=status.HTTP_201_CREATED)
+            return Response({
+                "error": True,
+                "message": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            raise e
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
