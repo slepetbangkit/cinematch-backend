@@ -45,15 +45,17 @@ def createMovieFromTMDB(id):
             director = crew['name']
             break
 
-    return Movie.objects.create(
-        tmdb_id=movie_detail_data["id"],
-        title=movie_detail_data["title"],
-        poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
-        description=movie_detail_data["overview"],
-        director=director,
-        release_date=movie_detail_data["release_date"],
-        rating=0.0
-    )
+    movie = Movie.objects.create(
+                tmdb_id=movie_detail_data["id"],
+                title=movie_detail_data["title"],
+                poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
+                description=movie_detail_data["overview"],
+                director=director,
+                release_date=movie_detail_data["release_date"],
+                rating=0.0
+            )
+    return movie
+
 
 class MovieView(APIView):
     permission_classes = (IsAuthenticated,)
