@@ -34,4 +34,4 @@ class ReviewSerializer(ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ('id', 'description', 'rating', 'username', 'created_at')
+        fields = '__all__'
