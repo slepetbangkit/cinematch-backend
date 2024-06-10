@@ -527,6 +527,14 @@ class ReviewView(APIView):
                                     + rating) / (movie.review_count + 1)
                     movie.review_count += 1
                     movie.save()
+                    description = f"{request.user.username} left a review on {movie.title}"
+                    activity_type = "REVIEWED_MOVIE"
+                    UserActivity.objects.create(
+                        username=request.user,
+                        movie_tmdb_id=movie.tmdb_id,
+                        description=description,
+                        type=activity_type
+                    )
                     return Response({
                         "error": False,
                         "data": serializer.data
