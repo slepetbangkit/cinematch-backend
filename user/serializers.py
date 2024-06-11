@@ -93,12 +93,13 @@ class ProfileSerializer(ModelSerializer):
 
 
 class SearchProfileSerializer(ModelSerializer):
-    model = CustomUser
-    fields = (
-                'id',
-                'username',
-                'profile_picture',
-            )
+    class Meta:
+        model = CustomUser
+        fields = (
+                    'id',
+                    'username',
+                    'profile_picture',
+                )
 
 
 class UserFollowingSerializer(ModelSerializer):
