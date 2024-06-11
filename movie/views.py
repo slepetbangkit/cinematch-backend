@@ -369,30 +369,32 @@ class PlaylistDetailView(APIView):
             new_movies = data.get('new_movie_tmdb_id', [])
             for movie_id in new_movies:
                 movie_title = ""
-                try:
-                    movie = Movie.objects.get(tmdb_id=movie_id)
-                except Movie.DoesNotExist:
+                movie = Movie.objects.filter(tmdb_id=movie_id)
+
+                if movie.exists():
+                    movie = movie.first()
+                else:
                     movie = createMovieFromTMDB(movie_id)
-                finally:
-                    PlaylistMovie.objects.get_or_create(playlist=playlist,
-                                                        movie=movie)
-                    movie_title = movie.title
-                    description = f"{request.user} added {movie_title} "
-                    activity_type = ""
 
-                    if playlist.is_favorite:
-                        description += "to their liked movies"
-                        activity_type = "LIKED_MOVIE"
-                    else:
-                        description += "to their playlist"
-                        activity_type = "ADDED_MOVIE_TO_PLAYLIST"
+                PlaylistMovie.objects.get_or_create(playlist=playlist,
+                                                    movie=movie)
+                movie_title = movie.title
+                description = f"{request.user} added {movie_title} "
+                activity_type = ""
 
-                    UserActivity.objects.create(
-                        username=request.user,
-                        movie_tmdb_id=movie_id,
-                        description=description,
-                        type=activity_type
-                    )
+                if playlist.is_favorite:
+                    description += "to their liked movies"
+                    activity_type = "LIKED_MOVIE"
+                else:
+                    description += "to their playlist"
+                    activity_type = "ADDED_MOVIE_TO_PLAYLIST"
+
+                UserActivity.objects.create(
+                    username=request.user,
+                    movie_tmdb_id=movie_id,
+                    description=description,
+                    type=activity_type
+                )
 
             # Delete movies
             delete_movies = data.get('delete_movie_tmdb_id', [])
