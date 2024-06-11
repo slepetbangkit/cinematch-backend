@@ -120,8 +120,7 @@ class MovieView(APIView):
             serializer = MovieSerializer(movies, many=True)
             return Response(serializer.data)
 
-        except Exception as e:
-            raise e
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occurred.",
@@ -508,8 +507,7 @@ class ReviewView(APIView):
                 "error": True,
                 "message": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            raise e
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occured.",
