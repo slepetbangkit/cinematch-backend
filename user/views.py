@@ -46,7 +46,8 @@ class RegisterView(CreateAPIView):
                 'message': serializer.errors,
             }, status.HTTP_400_BAD_REQUEST)
 
-        except Exception:
+        except Exception as e:
+            raise e
             return Response({
                 "error": True,
                 "message": "An error has occured.",
