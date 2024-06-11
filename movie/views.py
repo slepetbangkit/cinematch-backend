@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
 
 from .models import Movie, Playlist, PlaylistMovie, Review
 from user.models import UserActivity
@@ -506,9 +507,30 @@ class ReviewView(APIView):
                 "error": True,
                 "message": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            raise e
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occured.",
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getReviewDetailById(request, pk):
+    try:
+        review = Review.objects.get(id=pk)
+        serializer = ReviewSerializer(review)
+        return Response({
+                    "error": False,
+                    "data": serializer.data
+        })
+    except Review.DoesNotExist:
+        return Response({
+            "error": True,
+            "message": "Review not found.",
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception:
+        return Response({
+            "error": True,
+            "message": "An error has occurred.",
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
