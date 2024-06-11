@@ -4,7 +4,6 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import CustomUser, UserFollowing, UserActivity
@@ -12,6 +11,7 @@ from .serializers import (
         MyTokenObtainPairSerializer,
         RegisterSerializer,
         ProfileSerializer,
+        SearchProfileSerializer,
         UserFollowingSerializer,
         UserFollowingListSerializer,
         UserFollowerListSerializer,
@@ -67,7 +67,8 @@ class ProfileView(APIView):
                 "message": "User not found.",
             }, status.HTTP_404_NOT_FOUND)
 
-        except Exception:
+        except Exception as e:
+            raise e
             return Response({
                 "error": True,
                 "message": "An error has occured.",
@@ -223,7 +224,7 @@ def getActivities(request):
 def searchProfile(request):
     search_query = request.GET.get('query')
     user = CustomUser.objects.filter(username__contains=search_query)
-    serializer = ProfileSerializer(user, many=True)
+    serializer = SearchProfileSerializer(user, many=True)
     return Response({
                 "error": False,
                 "users": serializer.data

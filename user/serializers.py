@@ -10,6 +10,8 @@ from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import CustomUser, UserFollowing, UserActivity
+from movie.models import Playlist
+from movie.serializers import PlaylistSerializer
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -61,13 +63,42 @@ class RegisterSerializer(ModelSerializer):
 
         user.set_password(validated_data['password'])
         user.save()
+
+        Playlist.objects.create(
+            title="Liked Movies",
+            is_favorite=True,
+            user=user
+        )
         return user
 
 
 class ProfileSerializer(ModelSerializer):
+    playlists = SerializerMethodField()
+
+    def get_playlists(self, obj):
+        playlists = Playlist.objects.filter(user=obj)
+        return PlaylistSerializer(playlists, many=True).data
+
     class Meta:
         model = CustomUser
-        fields = '__all__'
+        fields = (
+                    'id',
+                    'username',
+                    'profile_picture',
+                    'bio',
+                    'follower_count',
+                    'following_count',
+                    'playlists',
+                )
+
+
+class SearchProfileSerializer(ModelSerializer):
+    model = CustomUser
+    fields = (
+                'id',
+                'username',
+                'profile_picture',
+            )
 
 
 class UserFollowingSerializer(ModelSerializer):

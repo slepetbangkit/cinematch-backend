@@ -26,7 +26,7 @@ class Movie(models.Model):
 class Playlist(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
-    description = models.TextField()
+    description = models.TextField(default="")
     is_favorite = models.BooleanField(default=False) # favorite playlist or custom playlist
     user = models.ForeignKey(CustomUser, related_name='playlists', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)

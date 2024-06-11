@@ -6,6 +6,7 @@ from django.db import models
 class CustomUser(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     bio = models.CharField(max_length=255, blank=True)
+    profile_picture = models.URLField(default="", blank=True)
     follower_count = models.IntegerField(default=0)
     following_count = models.IntegerField(default=0)
 
