@@ -10,6 +10,7 @@ from .serializers import (
         MovieSerializer,
         PlaylistSerializer,
         ReviewSerializer,
+        InPlaylistSerializer,
 )
 
 from requests import get
@@ -260,18 +261,25 @@ class MovieDetailTMDBView(APIView):
                     "poster_url": f"https://image.tmdb.org/t/p/original/{similar_movie['poster_path']}",
                 })
 
-            # rating from our db
             try:
                 movie = Movie.objects.get(tmdb_id=pk)
                 rating = movie.rating
+                playlists = [pm.playlist for pm in PlaylistMovie.objects.filter(
+                    movie=movie,
+                    playlist__user=request.user,
+                )]
+                in_playlists = InPlaylistSerializer(playlists, many=True).data
+                is_liked = True
             except Movie.DoesNotExist:
                 rating = 0.0
+                is_liked = False
+                in_playlists = []
 
             genres = [genre["name"] for genre in movie_details["genres"]]
 
             origin_countries = [
-                    countries.get(alpha_2=country).name
-                    for country in movie_details["origin_country"]
+                countries.get(alpha_2=country).name
+                for country in movie_details["origin_country"]
             ]
 
             language = languages.get(alpha_2=movie_details["original_language"]).name
@@ -279,6 +287,8 @@ class MovieDetailTMDBView(APIView):
             data = {
                 "tmdb_id": movie_details["id"],
                 "title": movie_details["title"],
+                "is_liked": is_liked,
+                "in_playlists": in_playlists,
                 "origin_countries": origin_countries,
                 "languages": language,
                 "genres": genres,
