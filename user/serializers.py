@@ -1,3 +1,5 @@
+import datetime
+
 from django.contrib.auth import password_validation as validators
 from rest_framework.serializers import (
         ModelSerializer,
@@ -186,6 +188,11 @@ class UserFollowingListSerializer(ModelSerializer):
 
 
 class UserActivitySerializer(ModelSerializer):
+    date = SerializerMethodField()
+
+    def get_date(self, obj):
+        return obj.created_at.strftime("%d %b %Y")
+
     class Meta:
         model = UserActivity
-        fields = '__all__'
+        exclude = ('created_at',)

@@ -297,6 +297,7 @@ class MovieDetailTMDBView(APIView):
                 "description": movie_details["overview"],
                 "director": director,
                 "release_date": movie_details["release_date"],
+                "runtime": movie_details["runtime"],
                 "rating": rating,
                 "trailer_link": trailer_link,
                 "cast": cast,
