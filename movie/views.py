@@ -267,6 +267,8 @@ class MovieDetailTMDBView(APIView):
             except Movie.DoesNotExist:
                 rating = 0.0
 
+            genres = [genre["name"] for genre in movie_details["genres"]]
+
             origin_countries = [
                     countries.get(alpha_2=country).name
                     for country in movie_details["origin_country"]
@@ -279,6 +281,7 @@ class MovieDetailTMDBView(APIView):
                 "title": movie_details["title"],
                 "origin_countries": origin_countries,
                 "languages": language,
+                "genres": genres,
                 "poster_url": f"https://image.tmdb.org/t/p/original/{movie_details['poster_path']}",
                 "backdrop_url": f"https://image.tmdb.org/t/p/original/{movie_details['backdrop_path']}",
                 "description": movie_details["overview"],
