@@ -13,6 +13,7 @@ from .serializers import (
 )
 
 from requests import get
+from pycountry import countries, languages
 import os
 
 API_KEY = os.getenv('TMDB_API_KEY')
@@ -204,7 +205,7 @@ class MovieDetailTMDBView(APIView):
             headers = {
                     "accept": "application/json",
                     "Authorization": f"Bearer {API_KEY}"
-                }
+            }
 
             url = f"{TMDB_API_URL}/movie/{pk}?api_key={API_KEY}&append_to_response=videos,credits,similar"
             response = get(url, headers=headers)
@@ -216,10 +217,10 @@ class MovieDetailTMDBView(APIView):
                     "message": f"TMDB :{response.json().get('status_message')} ",
                 }, status.HTTP_502_BAD_GATEWAY)
 
-            movie = response.json()
+            movie_details = response.json()
 
             # Get director
-            movie_credits_data = movie.get('credits', {}).get('crew', [])
+            movie_credits_data = movie_details.get('credits', {}).get('crew', [])
             for crew in movie_credits_data:
                 if crew['job'] == 'Director':
                     director = crew['name']
@@ -227,14 +228,14 @@ class MovieDetailTMDBView(APIView):
 
             # Get trailer link
             trailer_link = None
-            for video in movie.get('videos', {}).get('results', []):
+            for video in movie_details.get('videos', {}).get('results', []):
                 if (video['site'] == 'YouTube' and video['type'] == 'Trailer'):
                     trailer_link = f"https://www.youtube.com/watch?v={video['key']}"
                     break
 
             # Get cast ( name, char, poster )
             cast = []
-            for actor in movie.get('credits', {}).get('cast', [])[:5]:
+            for actor in movie_details.get('credits', {}).get('cast', [])[:5]:
                 cast.append({
                     "name": actor['name'],
                     "character": actor['character'],
@@ -243,7 +244,7 @@ class MovieDetailTMDBView(APIView):
 
             # Get crew ( name, char, poster )
             crew = []
-            for crew_member in movie.get('credits', {}).get('crew', [])[:5]:
+            for crew_member in movie_details.get('credits', {}).get('crew', [])[:5]:
                 crew.append({
                     "name": crew_member['name'],
                     "job": crew_member['job'],
@@ -252,7 +253,7 @@ class MovieDetailTMDBView(APIView):
 
             # Get similar movies
             similar_movies = []
-            for similar_movie in movie.get('similar', {}).get('results', [])[:5]:
+            for similar_movie in movie_details.get('similar', {}).get('results', [])[:5]:
                 similar_movies.append({
                     "tmdb_id": similar_movie['id'],
                     "title": similar_movie['title'],
@@ -266,13 +267,23 @@ class MovieDetailTMDBView(APIView):
             except Movie.DoesNotExist:
                 rating = 0.0
 
-            movie = {
-                "tmdb_id": movie["id"],
-                "title": movie["title"],
-                "poster_url": f"https://image.tmdb.org/t/p/original/{movie['poster_path']}",
-                "description": movie["overview"],
+            origin_countries = [
+                    countries.get(alpha_2=country).name
+                    for country in movie_details["origin_country"]
+            ]
+
+            language = languages.get(alpha_2=movie_details["original_language"]).name
+
+            data = {
+                "tmdb_id": movie_details["id"],
+                "title": movie_details["title"],
+                "origin_countries": origin_countries,
+                "languages": language,
+                "poster_url": f"https://image.tmdb.org/t/p/original/{movie_details['poster_path']}",
+                "backdrop_url": f"https://image.tmdb.org/t/p/original/{movie_details['backdrop_path']}",
+                "description": movie_details["overview"],
                 "director": director,
-                "release_date": movie["release_date"],
+                "release_date": movie_details["release_date"],
                 "rating": rating,
                 "trailer_link": trailer_link,
                 "cast": cast,
@@ -280,7 +291,7 @@ class MovieDetailTMDBView(APIView):
                 "similar_movies": similar_movies,
             }
 
-            return Response(movie, status.HTTP_200_OK)
+            return Response(data, status.HTTP_200_OK)
         except Exception:
             return Response({
                 "error": True,
