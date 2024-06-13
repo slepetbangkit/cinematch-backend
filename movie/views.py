@@ -503,7 +503,12 @@ class ReviewView(APIView):
             else:
                 movie = createMovieFromTMDB(pk)
             description = request.data['description']
-            rating = request.data['rating']
+
+            try:
+                rating = request.data['rating']
+            except KeyError:
+                rating = 0.0
+
             serializer = ReviewSerializer(data={
                 'user': request.user.id,
                 'movie': movie.id,
@@ -513,10 +518,11 @@ class ReviewView(APIView):
 
             if serializer.is_valid():
                 serializer.save()
-                movie.rating = ((movie.rating * movie.review_count)
-                                + rating) / (movie.review_count + 1)
-                movie.review_count += 1
-                movie.save()
+                if rating > 0.0:
+                    movie.rating = ((movie.rating * movie.review_count)
+                                    + rating) / (movie.review_count + 1)
+                    movie.review_count += 1
+                    movie.save()
                 description = f"{request.user.username} left a review on {movie.title}"
                 activity_type = "REVIEWED_MOVIE"
                 UserActivity.objects.create(
@@ -533,7 +539,8 @@ class ReviewView(APIView):
                 "error": True,
                 "message": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
+            raise e
             return Response({
                 "error": True,
                 "message": "An error has occured.",

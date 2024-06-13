@@ -51,7 +51,7 @@ class Review(models.Model):
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
     description = models.CharField(max_length=280)
     rating = models.FloatField(validators=[
-        MinValueValidator(1.0),
+        MinValueValidator(0.0),
         MaxValueValidator(5.0)
     ])
     created_at = models.DateTimeField(auto_now_add=True)
