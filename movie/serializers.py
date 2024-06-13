@@ -13,7 +13,7 @@ class MovieSerializer(ModelSerializer):
 
 
 class PlaylistSerializer(ModelSerializer):
-    user = ReadOnlyField(source='user.id')
+    username = ReadOnlyField(source='user.username')
     movies = MovieSerializer(many=True, read_only=True)
 
     class Meta:
@@ -41,10 +41,7 @@ class InPlaylistSerializer(ModelSerializer):
 
 
 class ReviewSerializer(ModelSerializer):
-    username = SerializerMethodField()
-
-    def get_username(self, obj):
-        return obj.user.username
+    username = ReadOnlyField(source='user.username')
 
     class Meta:
         model = Review
