@@ -35,6 +35,8 @@ CSRF_TRUSTED_ORIGINS = [APP_URL]
 SECURE_SSL_REDIRECT = PRODUCTION
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+APPEND_SLASH = False
+
 # Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -46,6 +48,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "user",
+    "movie",
     "rest_framework_simplejwt.token_blacklist",
     "rating",
 ]
@@ -183,7 +186,7 @@ USE_TZ = True
 # static file with gcloud storage
 STATIC_ROOT = 'static/'
 if PRODUCTION:
-    STATIC_URL = 'https://storage.googleapis.com/cinematch-c241-ps352/'
+    STATIC_URL = 'https://storage.googleapis.com/cinematch-c241-ps352/static/'
 else:
     STATIC_URL = 'static/'
 
