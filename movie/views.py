@@ -293,7 +293,6 @@ class MovieDetailTMDBView(APIView):
                     movie=movie,
                     playlist__user=request.user,
                 )]
-                is_reviewed = Review.objects.filter(user=request.user, movie=movie).exists()
                 in_playlists = InPlaylistSerializer(playlists, many=True).data
                 is_liked = True
             except Movie.DoesNotExist:
@@ -301,7 +300,6 @@ class MovieDetailTMDBView(APIView):
                 review_count = 0
                 is_liked = False
                 in_playlists = []
-                is_reviewed = False
 
             genres = [genre["name"] for genre in movie_details["genres"]]
 
@@ -317,7 +315,6 @@ class MovieDetailTMDBView(APIView):
                 "title": movie_details["title"],
                 "overall_sentiment": self.get_sentiment(rating, review_count),
                 "is_liked": is_liked,
-                "is_reviewed": is_reviewed,
                 "in_playlists": in_playlists,
                 "origin_countries": origin_countries,
                 "languages": language,
@@ -511,17 +508,20 @@ class ReviewView(APIView):
         try:
             movie = Movie.objects.get(tmdb_id=pk)
             reviews = Review.objects.filter(movie=movie)
+            is_reviewed = reviews.filter(user=request.user).exists()
             return Response({
                 "error": False,
                 "movie": {
                     "title": movie.title,
                     "release_date": movie.release_date,
                 },
+                "is_reviewed": is_reviewed,
                 "reviews": ReviewSerializer(reviews, many=True).data
             }, status.HTTP_200_OK)
         except Movie.DoesNotExist:
             return Response({
                 "error": False,
+                "is_reviewed": False,
                 "reviews": [],
             }, status.HTTP_200_OK)
 
