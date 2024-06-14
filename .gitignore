@@ -12,6 +12,8 @@ Icon
 # staticfiles
 static/
 
+# service accounts
+*.json
 
 # Thumbnails
 ._*
