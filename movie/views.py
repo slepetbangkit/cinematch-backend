@@ -203,27 +203,25 @@ class MovieDetailTMDBView(APIView):
 
     def get_sentiment(self, rating, review_count):
         percentage = rating * 100
-
-        if 95 <= percentage <= 100:
-            return "Overwhelmingly Positive"
-        elif 80 <= percentage < 95:
-            if review_count >= 10:
+        if review_count >= 10:
+            if 95 <= percentage <= 100:
+                return "Overwhelmingly Positive"
+            if 85 <= percentage <= 100:
                 return "Very Positive"
-            if review_count > 0:
-                return "Positive"
-        elif 70 <= percentage < 80:
-            return "Mostly Positive"
-        elif 40 <= percentage < 70:
-            return "Mixed"
-        elif 20 <= percentage < 40:
-            if review_count >= 100:
+            if 20 <= percentage < 40:
                 return "Mostly Negative"
-            else:
-                return "Negative"
-        elif 0 <= percentage < 20:
-            if review_count >= 10:
+            if 0 < review_count < 10:
                 return "Overwhelmingly Negative"
-            if review_count > 0:
+        if review_count > 0:
+            if 80 <= percentage <= 100 and review_count > 0:
+                return "Positive"
+            if 70 <= percentage < 80 and review_count > 0:
+                return "Mostly Positive"
+            if 40 <= percentage < 70 and review_count > 0:
+                return "Mixed"
+            if 20 <= percentage < 40:
+                return "Negative"
+            if 0 < review_count < 10:
                 return "Very Negative"
         return "N/A"
 
@@ -295,6 +293,7 @@ class MovieDetailTMDBView(APIView):
                     movie=movie,
                     playlist__user=request.user,
                 )]
+                is_reviewed = Review.objects.filter(user=request.user, movie=movie).exists()
                 in_playlists = InPlaylistSerializer(playlists, many=True).data
                 is_liked = True
             except Movie.DoesNotExist:
@@ -302,6 +301,7 @@ class MovieDetailTMDBView(APIView):
                 review_count = 0
                 is_liked = False
                 in_playlists = []
+                is_reviewed = False
 
             genres = [genre["name"] for genre in movie_details["genres"]]
 
@@ -317,6 +317,7 @@ class MovieDetailTMDBView(APIView):
                 "title": movie_details["title"],
                 "overall_sentiment": self.get_sentiment(rating, review_count),
                 "is_liked": is_liked,
+                "is_reviewed": is_reviewed,
                 "in_playlists": in_playlists,
                 "origin_countries": origin_countries,
                 "languages": language,
