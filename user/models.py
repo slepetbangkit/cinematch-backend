@@ -59,5 +59,6 @@ class UserActivity(models.Model):
             related_name='followed_user',
             null=True)
     movie_tmdb_id = models.IntegerField(blank=True, null=True)
+    review_id = models.UUIDField(null=True)
     type = models.CharField(max_length=100, choices=ACTIVITY_TYPES)
     created_at = models.DateField(auto_now_add=True)

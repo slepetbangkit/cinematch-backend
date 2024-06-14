@@ -1,3 +1,5 @@
+import datetime
+
 from django.contrib.auth import password_validation as validators
 from rest_framework.serializers import (
         ModelSerializer,
@@ -82,7 +84,23 @@ class RegisterSerializer(ModelSerializer):
 
 
 class ProfileSerializer(ModelSerializer):
+    is_followed = SerializerMethodField()
+    is_following_user = SerializerMethodField()
     playlists = SerializerMethodField()
+
+    def get_is_followed(self, obj):
+        current_user = self.context['request'].user
+        if current_user == obj:
+            return False
+        return UserFollowing.objects. \
+            filter(user=current_user, following_user=obj).exists()
+
+    def get_is_following_user(self, obj):
+        current_user = self.context['request'].user
+        if current_user == obj:
+            return False
+        return UserFollowing.objects. \
+            filter(user=obj, following_user=current_user).exists()
 
     def get_playlists(self, obj):
         playlists = Playlist.objects.filter(user=obj)
@@ -91,23 +109,26 @@ class ProfileSerializer(ModelSerializer):
     class Meta:
         model = CustomUser
         fields = (
-                    'id',
-                    'username',
-                    'profile_picture',
-                    'bio',
-                    'follower_count',
-                    'following_count',
-                    'playlists',
-                )
+            'id',
+            'username',
+            'is_followed',
+            'is_following_user',
+            'profile_picture',
+            'bio',
+            'follower_count',
+            'following_count',
+            'playlists',
+        )
 
 
 class SearchProfileSerializer(ModelSerializer):
-    model = CustomUser
-    fields = (
-                'id',
-                'username',
-                'profile_picture',
-            )
+    class Meta:
+        model = CustomUser
+        fields = (
+            'id',
+            'username',
+            'profile_picture',
+        )
 
 
 class UserFollowingSerializer(ModelSerializer):
@@ -180,6 +201,11 @@ class UserFollowingListSerializer(ModelSerializer):
 
 
 class UserActivitySerializer(ModelSerializer):
+    date = SerializerMethodField()
+
+    def get_date(self, obj):
+        return obj.created_at.strftime("%d %b %Y")
+
     class Meta:
         model = UserActivity
-        fields = '__all__'
+        exclude = ('created_at',)

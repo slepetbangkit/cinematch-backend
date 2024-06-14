@@ -46,14 +46,25 @@ class PlaylistMovie(models.Model):
 
 
 class Review(models.Model):
+    POSITIVE = "POSITIVE"
+    NEUTRAL = "NEUTRAL"
+    NEGATIVE = "NEGATIVE"
+
+    SENTIMENT_TYPES = [
+        (POSITIVE, "POSITIVE"),
+        (NEUTRAL, "NEUTRAL"),
+        (NEGATIVE, "NEGATIVE"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(CustomUser, related_name='reviewer', on_delete=models.CASCADE)
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
     description = models.CharField(max_length=280)
     rating = models.FloatField(validators=[
-        MinValueValidator(1.0),
-        MaxValueValidator(5.0)
+        MinValueValidator(0.0),
+        MaxValueValidator(1.0)
     ])
+    sentiment = models.CharField(max_length=10, blank=True, choices=SENTIMENT_TYPES)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -61,5 +72,11 @@ class Review(models.Model):
         ordering = ["-created_at"]
 
     def save(self, *args, **kwargs):
-        self.rating = round(self.rating, 2)
+        percentage = self.rating * 100
+        if 60 <= percentage <= 100:
+            self.sentiment = "positive"
+        elif 40 <= percentage < 60:
+            self.sentiment = "neutral"
+        else:
+            self.sentiment = "negative"
         super(Review, self).save(*args, **kwargs)

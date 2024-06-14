@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
 
 from .models import Movie, Playlist, PlaylistMovie, Review
 from user.models import UserActivity
@@ -9,9 +10,12 @@ from .serializers import (
         MovieSerializer,
         PlaylistSerializer,
         ReviewSerializer,
+        InPlaylistSerializer,
 )
+from rating.service import get_sentiment_score
 
 from requests import get
+from pycountry import countries, languages
 import os
 
 API_KEY = os.getenv('TMDB_API_KEY')
@@ -108,7 +112,6 @@ class MovieView(APIView):
                         "description": movie["overview"],
                         "director": director,
                         "release_date": movie["release_date"],
-                        "rating": 0.0,
                     })
 
                 return Response(
@@ -120,8 +123,7 @@ class MovieView(APIView):
             serializer = MovieSerializer(movies, many=True)
             return Response(serializer.data)
 
-        except Exception as e:
-            raise e
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occurred.",
@@ -199,12 +201,36 @@ class MovieView(APIView):
 class MovieDetailTMDBView(APIView):
     permission_classes = (IsAuthenticated,)
 
+    def get_sentiment(self, rating, review_count):
+        percentage = rating * 100
+        if review_count >= 10:
+            if 95 <= percentage <= 100:
+                return "Overwhelmingly Positive"
+            if 85 <= percentage <= 100:
+                return "Very Positive"
+            if 20 <= percentage < 40:
+                return "Mostly Negative"
+            if 0 < review_count < 10:
+                return "Overwhelmingly Negative"
+        if review_count > 0:
+            if 80 <= percentage <= 100 and review_count > 0:
+                return "Positive"
+            if 70 <= percentage < 80 and review_count > 0:
+                return "Mostly Positive"
+            if 40 <= percentage < 70 and review_count > 0:
+                return "Mixed"
+            if 20 <= percentage < 40:
+                return "Negative"
+            if 0 < review_count < 10:
+                return "Very Negative"
+        return "N/A"
+
     def get(self, request, pk):
         try:
             headers = {
                     "accept": "application/json",
                     "Authorization": f"Bearer {API_KEY}"
-                }
+            }
 
             url = f"{TMDB_API_URL}/movie/{pk}?api_key={API_KEY}&append_to_response=videos,credits,similar"
             response = get(url, headers=headers)
@@ -216,10 +242,10 @@ class MovieDetailTMDBView(APIView):
                     "message": f"TMDB :{response.json().get('status_message')} ",
                 }, status.HTTP_502_BAD_GATEWAY)
 
-            movie = response.json()
+            movie_details = response.json()
 
             # Get director
-            movie_credits_data = movie.get('credits', {}).get('crew', [])
+            movie_credits_data = movie_details.get('credits', {}).get('crew', [])
             for crew in movie_credits_data:
                 if crew['job'] == 'Director':
                     director = crew['name']
@@ -227,14 +253,14 @@ class MovieDetailTMDBView(APIView):
 
             # Get trailer link
             trailer_link = None
-            for video in movie.get('videos', {}).get('results', []):
+            for video in movie_details.get('videos', {}).get('results', []):
                 if (video['site'] == 'YouTube' and video['type'] == 'Trailer'):
                     trailer_link = f"https://www.youtube.com/watch?v={video['key']}"
                     break
 
             # Get cast ( name, char, poster )
             cast = []
-            for actor in movie.get('credits', {}).get('cast', [])[:5]:
+            for actor in movie_details.get('credits', {}).get('cast', [])[:5]:
                 cast.append({
                     "name": actor['name'],
                     "character": actor['character'],
@@ -243,7 +269,7 @@ class MovieDetailTMDBView(APIView):
 
             # Get crew ( name, char, poster )
             crew = []
-            for crew_member in movie.get('credits', {}).get('crew', [])[:5]:
+            for crew_member in movie_details.get('credits', {}).get('crew', [])[:5]:
                 crew.append({
                     "name": crew_member['name'],
                     "job": crew_member['job'],
@@ -252,27 +278,53 @@ class MovieDetailTMDBView(APIView):
 
             # Get similar movies
             similar_movies = []
-            for similar_movie in movie.get('similar', {}).get('results', [])[:5]:
+            for similar_movie in movie_details.get('similar', {}).get('results', [])[:5]:
                 similar_movies.append({
                     "tmdb_id": similar_movie['id'],
                     "title": similar_movie['title'],
                     "poster_url": f"https://image.tmdb.org/t/p/original/{similar_movie['poster_path']}",
                 })
 
-            # rating from our db
             try:
                 movie = Movie.objects.get(tmdb_id=pk)
                 rating = movie.rating
+                review_count = movie.review_count
+                playlists = [pm.playlist for pm in PlaylistMovie.objects.filter(
+                    movie=movie,
+                    playlist__user=request.user,
+                )]
+                in_playlists = InPlaylistSerializer(playlists, many=True).data
+                is_liked = True
             except Movie.DoesNotExist:
                 rating = 0.0
+                review_count = 0
+                is_liked = False
+                in_playlists = []
 
-            movie = {
-                "tmdb_id": movie["id"],
-                "title": movie["title"],
-                "poster_url": f"https://image.tmdb.org/t/p/original/{movie['poster_path']}",
-                "description": movie["overview"],
+            genres = [genre["name"] for genre in movie_details["genres"]]
+
+            origin_countries = [
+                countries.get(alpha_2=country).name
+                for country in movie_details["origin_country"]
+            ]
+
+            language = languages.get(alpha_2=movie_details["original_language"]).name
+
+            data = {
+                "tmdb_id": movie_details["id"],
+                "title": movie_details["title"],
+                "overall_sentiment": self.get_sentiment(rating, review_count),
+                "is_liked": is_liked,
+                "in_playlists": in_playlists,
+                "origin_countries": origin_countries,
+                "languages": language,
+                "genres": genres,
+                "poster_url": f"https://image.tmdb.org/t/p/original/{movie_details['poster_path']}",
+                "backdrop_url": f"https://image.tmdb.org/t/p/original/{movie_details['backdrop_path']}",
+                "description": movie_details["overview"],
                 "director": director,
-                "release_date": movie["release_date"],
+                "release_date": movie_details["release_date"],
+                "runtime": movie_details["runtime"],
                 "rating": rating,
                 "trailer_link": trailer_link,
                 "cast": cast,
@@ -280,7 +332,7 @@ class MovieDetailTMDBView(APIView):
                 "similar_movies": similar_movies,
             }
 
-            return Response(movie, status.HTTP_200_OK)
+            return Response(data, status.HTTP_200_OK)
         except Exception:
             return Response({
                 "error": True,
@@ -456,17 +508,20 @@ class ReviewView(APIView):
         try:
             movie = Movie.objects.get(tmdb_id=pk)
             reviews = Review.objects.filter(movie=movie)
+            is_reviewed = reviews.filter(user=request.user).exists()
             return Response({
                 "error": False,
                 "movie": {
                     "title": movie.title,
                     "release_date": movie.release_date,
                 },
+                "is_reviewed": is_reviewed,
                 "reviews": ReviewSerializer(reviews, many=True).data
             }, status.HTTP_200_OK)
         except Movie.DoesNotExist:
             return Response({
                 "error": False,
+                "is_reviewed": False,
                 "reviews": [],
             }, status.HTTP_200_OK)
 
@@ -478,18 +533,19 @@ class ReviewView(APIView):
             else:
                 movie = createMovieFromTMDB(pk)
             description = request.data['description']
-            rating = request.data['rating']
+            sentiment_score = get_sentiment_score(description)
+
             serializer = ReviewSerializer(data={
                 'user': request.user.id,
                 'movie': movie.id,
                 'description': description,
-                'rating': rating,
+                'rating': sentiment_score,
             }, context={'request': request})
 
             if serializer.is_valid():
                 serializer.save()
                 movie.rating = ((movie.rating * movie.review_count)
-                                + rating) / (movie.review_count + 1)
+                                + sentiment_score) / (movie.review_count + 1)
                 movie.review_count += 1
                 movie.save()
                 description = f"{request.user.username} left a review on {movie.title}"
@@ -497,6 +553,7 @@ class ReviewView(APIView):
                 UserActivity.objects.create(
                     username=request.user,
                     movie_tmdb_id=movie.tmdb_id,
+                    review_id=serializer.data['id'],
                     description=description,
                     type=activity_type
                 )
@@ -514,3 +571,25 @@ class ReviewView(APIView):
                 "error": True,
                 "message": "An error has occured.",
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getReviewDetailById(request, pk):
+    try:
+        review = Review.objects.get(id=pk)
+        serializer = ReviewSerializer(review)
+        return Response({
+                    "error": False,
+                    "data": serializer.data
+        })
+    except Review.DoesNotExist:
+        return Response({
+            "error": True,
+            "message": "Review not found.",
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception:
+        return Response({
+            "error": True,
+            "message": "An error has occurred.",
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

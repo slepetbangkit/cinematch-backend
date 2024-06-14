@@ -3,7 +3,7 @@ from rest_framework.serializers import (
         SerializerMethodField,
         ReadOnlyField,
 )
-from .models import Movie, Playlist, Review
+from .models import Movie, Playlist, Review, PlaylistMovie
 
 
 class MovieSerializer(ModelSerializer):
@@ -13,7 +13,7 @@ class MovieSerializer(ModelSerializer):
 
 
 class PlaylistSerializer(ModelSerializer):
-    user = ReadOnlyField(source='user.id')
+    username = ReadOnlyField(source='user.username')
     movies = MovieSerializer(many=True, read_only=True)
 
     class Meta:
@@ -26,11 +26,22 @@ class PlaylistSerializer(ModelSerializer):
         return playlist
 
 
-class ReviewSerializer(ModelSerializer):
-    username = SerializerMethodField()
+class InPlaylistSerializer(ModelSerializer):
+    poster_url = SerializerMethodField()
 
-    def get_username(self, obj):
-        return obj.user.username
+    def get_poster_url(self, obj):
+        movie = PlaylistMovie.objects.filter(playlist=obj).first().movie
+        if movie:
+            return movie.poster_url
+        return ""
+
+    class Meta:
+        model = Playlist
+        fields = ('id', 'title', 'description', 'poster_url')
+
+
+class ReviewSerializer(ModelSerializer):
+    username = ReadOnlyField(source='user.username')
 
     class Meta:
         model = Review

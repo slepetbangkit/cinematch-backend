@@ -60,7 +60,11 @@ class ProfileView(APIView):
     def get(self, request, username):
         try:
             user = CustomUser.objects.get(username=username)
-            serializer = ProfileSerializer(user, many=False)
+            serializer = ProfileSerializer(
+                user,
+                many=False,
+                context={'request': request},
+            )
             return Response(serializer.data)
         except CustomUser.DoesNotExist:
             return Response({
@@ -175,8 +179,7 @@ class UserFollowingView(APIView):
                 "error": True,
                 "message": "User not found.",
             }, status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            raise e
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occured.",
