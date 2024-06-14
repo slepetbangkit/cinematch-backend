@@ -112,7 +112,6 @@ class MovieView(APIView):
                         "description": movie["overview"],
                         "director": director,
                         "release_date": movie["release_date"],
-                        "rating": 0.0,
                     })
 
                 return Response(
@@ -202,6 +201,32 @@ class MovieView(APIView):
 class MovieDetailTMDBView(APIView):
     permission_classes = (IsAuthenticated,)
 
+    def get_sentiment(self, rating, review_count):
+        percentage = rating * 100
+
+        if 95 <= percentage <= 100:
+            return "Overwhelmingly Positive"
+        elif 80 <= percentage < 95:
+            if review_count >= 10:
+                return "Very Positive"
+            if review_count > 0:
+                return "Positive"
+        elif 70 <= percentage < 80:
+            return "Mostly Positive"
+        elif 40 <= percentage < 70:
+            return "Mixed"
+        elif 20 <= percentage < 40:
+            if review_count >= 100:
+                return "Mostly Negative"
+            else:
+                return "Negative"
+        elif 0 <= percentage < 20:
+            if review_count >= 10:
+                return "Overwhelmingly Negative"
+            if review_count > 0:
+                return "Very Negative"
+        return "N/A"
+
     def get(self, request, pk):
         try:
             headers = {
@@ -265,6 +290,7 @@ class MovieDetailTMDBView(APIView):
             try:
                 movie = Movie.objects.get(tmdb_id=pk)
                 rating = movie.rating
+                review_count = movie.review_count
                 playlists = [pm.playlist for pm in PlaylistMovie.objects.filter(
                     movie=movie,
                     playlist__user=request.user,
@@ -273,6 +299,7 @@ class MovieDetailTMDBView(APIView):
                 is_liked = True
             except Movie.DoesNotExist:
                 rating = 0.0
+                review_count = 0
                 is_liked = False
                 in_playlists = []
 
@@ -288,6 +315,7 @@ class MovieDetailTMDBView(APIView):
             data = {
                 "tmdb_id": movie_details["id"],
                 "title": movie_details["title"],
+                "overall_sentiment": self.get_sentiment(rating, review_count),
                 "is_liked": is_liked,
                 "in_playlists": in_playlists,
                 "origin_countries": origin_countries,
