@@ -553,6 +553,7 @@ class ReviewView(APIView):
                 UserActivity.objects.create(
                     username=request.user,
                     movie_tmdb_id=movie.tmdb_id,
+                    review_id=serializer.data['id'],
                     description=description,
                     type=activity_type
                 )
