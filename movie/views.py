@@ -12,6 +12,7 @@ from .serializers import (
         ReviewSerializer,
         InPlaylistSerializer,
 )
+from rating.service import get_sentiment_score
 
 from requests import get
 from pycountry import countries, languages
@@ -111,7 +112,6 @@ class MovieView(APIView):
                         "description": movie["overview"],
                         "director": director,
                         "release_date": movie["release_date"],
-                        "rating": 0.0,
                     })
 
                 return Response(
@@ -201,6 +201,30 @@ class MovieView(APIView):
 class MovieDetailTMDBView(APIView):
     permission_classes = (IsAuthenticated,)
 
+    def get_sentiment(self, rating, review_count):
+        percentage = rating * 100
+        if review_count >= 10:
+            if 95 <= percentage <= 100:
+                return "Overwhelmingly Positive"
+            if 85 <= percentage <= 100:
+                return "Very Positive"
+            if 20 <= percentage < 40:
+                return "Mostly Negative"
+            if 0 < review_count < 10:
+                return "Overwhelmingly Negative"
+        if review_count > 0:
+            if 80 <= percentage <= 100 and review_count > 0:
+                return "Positive"
+            if 70 <= percentage < 80 and review_count > 0:
+                return "Mostly Positive"
+            if 40 <= percentage < 70 and review_count > 0:
+                return "Mixed"
+            if 20 <= percentage < 40:
+                return "Negative"
+            if 0 < review_count < 10:
+                return "Very Negative"
+        return "N/A"
+
     def get(self, request, pk):
         try:
             headers = {
@@ -264,16 +288,20 @@ class MovieDetailTMDBView(APIView):
             try:
                 movie = Movie.objects.get(tmdb_id=pk)
                 rating = movie.rating
+                review_count = movie.review_count
                 playlists = [pm.playlist for pm in PlaylistMovie.objects.filter(
                     movie=movie,
                     playlist__user=request.user,
                 )]
+                is_reviewed = Review.objects.filter(user=request.user, movie=movie).exists()
                 in_playlists = InPlaylistSerializer(playlists, many=True).data
                 is_liked = True
             except Movie.DoesNotExist:
                 rating = 0.0
+                review_count = 0
                 is_liked = False
                 in_playlists = []
+                is_reviewed = False
 
             genres = [genre["name"] for genre in movie_details["genres"]]
 
@@ -287,7 +315,9 @@ class MovieDetailTMDBView(APIView):
             data = {
                 "tmdb_id": movie_details["id"],
                 "title": movie_details["title"],
+                "overall_sentiment": self.get_sentiment(rating, review_count),
                 "is_liked": is_liked,
+                "is_reviewed": is_reviewed,
                 "in_playlists": in_playlists,
                 "origin_countries": origin_countries,
                 "languages": language,
@@ -503,26 +533,21 @@ class ReviewView(APIView):
             else:
                 movie = createMovieFromTMDB(pk)
             description = request.data['description']
-
-            try:
-                rating = request.data['rating']
-            except KeyError:
-                rating = 0.0
+            sentiment_score = get_sentiment_score(description)
 
             serializer = ReviewSerializer(data={
                 'user': request.user.id,
                 'movie': movie.id,
                 'description': description,
-                'rating': rating,
+                'rating': sentiment_score,
             }, context={'request': request})
 
             if serializer.is_valid():
                 serializer.save()
-                if rating > 0.0:
-                    movie.rating = ((movie.rating * movie.review_count)
-                                    + rating) / (movie.review_count + 1)
-                    movie.review_count += 1
-                    movie.save()
+                movie.rating = ((movie.rating * movie.review_count)
+                                + sentiment_score) / (movie.review_count + 1)
+                movie.review_count += 1
+                movie.save()
                 description = f"{request.user.username} left a review on {movie.title}"
                 activity_type = "REVIEWED_MOVIE"
                 UserActivity.objects.create(

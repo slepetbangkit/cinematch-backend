@@ -9,6 +9,10 @@
 Icon
 
 
+# staticfiles
+static/
+
+
 # Thumbnails
 ._*
 
