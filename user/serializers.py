@@ -76,7 +76,7 @@ class RegisterSerializer(ModelSerializer):
 
 class ProfileSerializer(ModelSerializer):
     is_followed = SerializerMethodField()
-    is_self = SerializerMethodField()
+    is_following_user = SerializerMethodField()
     playlists = SerializerMethodField()
 
     def get_is_followed(self, obj):
@@ -86,8 +86,12 @@ class ProfileSerializer(ModelSerializer):
         return UserFollowing.objects. \
             filter(user=current_user, following_user=obj).exists()
 
-    def get_is_self(self, obj):
-        return self.context['request'].user == obj
+    def get_is_following_user(self, obj):
+        current_user = self.context['request'].user
+        if current_user == obj:
+            return False
+        return UserFollowing.objects. \
+            filter(user=obj, following_user=current_user).exists()
 
     def get_playlists(self, obj):
         playlists = Playlist.objects.filter(user=obj)
@@ -98,8 +102,8 @@ class ProfileSerializer(ModelSerializer):
         fields = (
             'id',
             'username',
-            'is_self',
             'is_followed',
+            'is_following_user',
             'profile_picture',
             'bio',
             'follower_count',
