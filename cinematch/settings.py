@@ -208,6 +208,8 @@ STORAGES = {
     }
 }
 GS_BUCKET_NAME = os.environ.get("GS_BUCKET_NAME")
-GS_CREDENTIALS = service_account.Credentials.from_service_account_file(
-    os.path.join(BASE_DIR, os.environ.get("GS_KEY_FILENAME")),
-)
+
+if not PRODUCTION:
+    GS_CREDENTIALS = service_account.Credentials.from_service_account_file(
+        os.path.join(BASE_DIR, os.environ.get("GS_KEY_FILENAME")),
+    )
