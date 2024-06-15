@@ -98,7 +98,8 @@ class ProfileView(APIView):
                 "error": True,
                 'message': "Unauthorized.",
             }, status.HTTP_403_FORBIDDEN)
-        except Exception:
+        except Exception as e:
+            print(e)
             return Response({
                 "error": True,
                 "message": "An error has occured.",
@@ -116,13 +117,13 @@ class UserFollowingView(APIView):
                                             user=user
                                         ),
                                         many=True
-                                    )
+            )
             followers_serialized = UserFollowerListSerializer(
                                         UserFollowing.objects.filter(
                                             following_user=user
                                         ),
                                         many=True
-                                   )
+            )
             data = {
                 "following_count": user.following_count,
                 "follower_count": user.follower_count,
