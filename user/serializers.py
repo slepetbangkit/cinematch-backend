@@ -52,7 +52,6 @@ class RegisterSerializer(ModelSerializer):
             'email',
             'password',
             'bio',
-            'profile_picture',
             'token'
         )
 
@@ -69,7 +68,6 @@ class RegisterSerializer(ModelSerializer):
             username=validated_data['username'],
             email=validated_data['email'],
             bio=validated_data['bio'],
-            profile_picture=validated_data['profile_picture'],
         )
 
         user.set_password(validated_data['password'])
