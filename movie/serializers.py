@@ -2,6 +2,7 @@ from rest_framework.serializers import (
         ModelSerializer,
         SerializerMethodField,
         ReadOnlyField,
+        CharField,
 )
 from .models import Movie, Playlist, Review, PlaylistMovie
 
@@ -13,6 +14,7 @@ class MovieSerializer(ModelSerializer):
 
 
 class PlaylistSerializer(ModelSerializer):
+    user = CharField(required=False)
     username = ReadOnlyField(source='user.username')
     movies = MovieSerializer(many=True, read_only=True)
 
