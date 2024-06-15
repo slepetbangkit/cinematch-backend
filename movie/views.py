@@ -466,12 +466,10 @@ class PlaylistDetailView(APIView):
                 "error": True,
                 "message": "Playlist not found.",
             }, status.HTTP_404_NOT_FOUND)
-        except Exception as e:
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occured.",
-                "Exception": e,
-
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, pk):
@@ -565,8 +563,7 @@ class ReviewView(APIView):
                 "error": True,
                 "message": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            raise e
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occured.",

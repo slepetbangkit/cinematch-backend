@@ -47,7 +47,14 @@ class RegisterSerializer(ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('username', 'email', 'password', 'token')
+        fields = (
+            'username',
+            'email',
+            'password',
+            'bio',
+            'profile_picture',
+            'token'
+        )
 
     def get_token(self, user):
         refresh = MyTokenObtainPairSerializer.get_token(user)
@@ -61,6 +68,8 @@ class RegisterSerializer(ModelSerializer):
         user = CustomUser.objects.create(
             username=validated_data['username'],
             email=validated_data['email'],
+            bio=validated_data['bio'],
+            profile_picture=validated_data['profile_picture'],
         )
 
         user.set_password(validated_data['password'])
