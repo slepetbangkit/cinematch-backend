@@ -50,8 +50,7 @@ class UserActivity(models.Model):
             CustomUser,
             on_delete=models.CASCADE,
             to_field='username',
-            related_name='user',
-            null=True)
+            related_name='user',)
     followed_username = models.ForeignKey(
             CustomUser,
             on_delete=models.CASCADE,
