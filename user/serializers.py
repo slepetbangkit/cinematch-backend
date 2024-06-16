@@ -180,7 +180,7 @@ class UserFollowerListSerializer(ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username')
+        fields = ('id', 'username', 'profile_picture')
 
 
 class UserFollowingListSerializer(ModelSerializer):
@@ -195,7 +195,7 @@ class UserFollowingListSerializer(ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username')
+        fields = ('id', 'username', 'profile_picture')
 
 
 class UserActivitySerializer(ModelSerializer):
