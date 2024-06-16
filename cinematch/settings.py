@@ -10,9 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import os
+import ast
 from pathlib import Path
 from datetime import timedelta
-import os
 from dotenv import load_dotenv
 from google.oauth2 import service_account
 
@@ -209,5 +210,5 @@ STORAGES = {
 }
 GS_BUCKET_NAME = os.environ.get("GS_BUCKET_NAME")
 GS_CREDENTIALS = service_account.Credentials.from_service_account_info(
-    os.environ.get("GS_SERVICE_ACCOUNT_KEY"),
+    ast.literal_eval(os.environ.get("GS_SERVICE_ACCOUNT_KEY")),
 )
