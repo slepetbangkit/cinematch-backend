@@ -44,6 +44,7 @@ class InPlaylistSerializer(ModelSerializer):
 
 class ReviewSerializer(ModelSerializer):
     username = ReadOnlyField(source='user.username')
+    profile_picture = ReadOnlyField(source='user.profile_picture')
 
     class Meta:
         model = Review
