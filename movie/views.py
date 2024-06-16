@@ -486,7 +486,7 @@ class PlaylistDetailView(APIView):
             playlist.delete()
             return Response(
                     {"message": "Playlist deleted successfully."},
-                    status=status.HTTP_204_NO_CONTENT)
+                    status=status.HTTP_200_OK)
         except Playlist.DoesNotExist:
             return Response({
                 "error": True,
