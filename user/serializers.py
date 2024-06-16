@@ -7,6 +7,7 @@ from rest_framework.serializers import (
         EmailField,
         SerializerMethodField,
         ValidationError,
+        ReadOnlyField,
 )
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -178,6 +179,9 @@ class UserFollowerListSerializer(ModelSerializer):
     def get_id(self, data):
         return str(data.user.id)
 
+    def get_profile_picture(self, data):
+        return str(data.user.profile_picture)
+
     class Meta:
         model = CustomUser
         fields = ('id', 'username', 'profile_picture')
@@ -193,6 +197,9 @@ class UserFollowingListSerializer(ModelSerializer):
     def get_id(self, data):
         return str(data.following_user.id)
 
+    def get_profile_picture(self, data):
+        return str(data.following_user.profile_picture)
+
     class Meta:
         model = CustomUser
         fields = ('id', 'username', 'profile_picture')
@@ -200,9 +207,13 @@ class UserFollowingListSerializer(ModelSerializer):
 
 class UserActivitySerializer(ModelSerializer):
     date = SerializerMethodField()
+    profile_picture = SerializerMethodField()
 
     def get_date(self, obj):
         return obj.created_at.strftime("%d %b %Y")
+
+    def get_profile_picture(self, data):
+        return str(data.username.profile_picture)
 
     class Meta:
         model = UserActivity
