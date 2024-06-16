@@ -1,5 +1,5 @@
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -590,3 +590,91 @@ def getReviewDetailById(request, pk):
             "error": True,
             "message": "An error has occurred.",
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def getHome(self, request):
+        try:
+            results = {
+                "recommended": [],
+                "friends": [{
+                    "username": "John Doe",
+                    "profile_picture": "https://randomuser.me"
+                }],
+                "verdict": [],
+                "popular": []
+            }
+            # if authenticated, get from ML model else TMDB Popular
+            if(request.user.is_authenticated):
+                # popular movie from tmdbtmdb_api_url = "https://api.themoviedb.org/3"
+                url = f"{TMDB_API_URL}/movie/popular?api_key={API_KEY}"
+                headers = {
+                    "accept": "application/json",
+                    "Authorization": f"Bearer {API_KEY}"
+                }
+
+                response = get(url, headers=headers)
+
+                movies = response.json()["results"]
+                for movie in movies:
+                    results["popular"].append({
+                        "tmdb_id": movie["id"],
+                        "title": movie["title"],
+                        "poster_url": "https://image.tmdb.org/t/p/original/"
+                                      + f"{movie['poster_path']}",
+                    })
+            else:
+                # get recommended movies from ML model
+                pass
+
+            # get friend's liked movies from playlist (is_favorite == True)
+            friends = request.user.following.all()
+            for friend in friends:
+                for playlist in friend.playlists.all():
+                    if playlist.is_favorite:
+                        for movie in playlist.movies.all():
+                            results["recommended"].append({
+                                "tmdb_id": movie.tmdb_id,
+                                "title": movie.title,
+                                "poster_url": movie.poster_url,
+                            })
+
+            # their verdict from all in movie_review randomize 10 
+            # get following users' reviews
+
+            friends = request.user.following.all()
+            for friend in friends:
+                for review in friend.reviews.all():
+                    results["verdict"].append({
+                        "tmdb_id": review.movie.tmdb_id,
+                        "title": review.movie.title,
+                        "poster_url": review.movie.poster_url,
+                        "rating": review.rating,
+                        "description": review.description
+                    })
+            #get popular movies geolocation based on user's location from tmdb  
+            dummy_location = "US"
+            url = f"{TMDB_API_URL}/movie/popular?api_key={API_KEY}&region={dummy_location}"
+            response = get(url, headers=headers)
+            movies = response.json()["results"]
+            for movie in movies:
+                results["popular"].append({
+                    "tmdb_id": movie["id"],
+                    "title": movie["title"],
+                    "poster_url": "https://image.tmdb.org/t/p/original/"
+                                  + f"{movie['poster_path']}",
+                })
+
+            return Response({
+                "error": False,
+                "data": results   
+            }
+            )
+        except Exception:
+            return Response({
+                "error": True,
+                "message": "An error has occurred.",
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    
