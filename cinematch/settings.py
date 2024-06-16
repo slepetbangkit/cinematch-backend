@@ -210,5 +210,5 @@ STORAGES = {
 }
 GS_BUCKET_NAME = os.environ.get("GS_BUCKET_NAME")
 GS_CREDENTIALS = service_account.Credentials.from_service_account_info(
-    ast.literal_eval(os.environ.get("GS_SERVICE_ACCOUNT_KEY")),
+    ast.literal_eval(str(os.environ.get("GS_SERVICE_ACCOUNT_KEY"))),
 )
