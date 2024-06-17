@@ -130,7 +130,7 @@ class UserFollowingView(APIView):
                 "followings": followings_serialized.data,
                 "followers": followers_serialized.data,
             }
-            return Response(data)
+            return Response(data, status.HTTP_200_OK)
 
         except CustomUser.DoesNotExist:
             return Response({

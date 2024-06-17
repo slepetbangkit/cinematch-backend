@@ -8,6 +8,7 @@ from rest_framework.serializers import (
         SerializerMethodField,
         ValidationError,
         ReadOnlyField,
+        BaseSerializer,
 )
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -169,18 +170,17 @@ class UserFollowingSerializer(ModelSerializer):
         following_user.save()
 
 
+class ProfilePictureSerializer(BaseSerializer):
+    def to_representation(self, user):
+        if user.profile_picture:
+            return user.profile_picture.url
+        return None
+
+
 class UserFollowerListSerializer(ModelSerializer):
-    id = SerializerMethodField()
-    username = SerializerMethodField()
-
-    def get_username(self, data):
-        return str(CustomUser.objects.get(id=data.user.id))
-
-    def get_id(self, data):
-        return str(data.user.id)
-
-    def get_profile_picture(self, data):
-        return str(data.user.profile_picture)
+    id = ReadOnlyField(source='user.id')
+    username = ReadOnlyField(source='user.username')
+    profile_picture = ProfilePictureSerializer(source='user')
 
     class Meta:
         model = CustomUser
@@ -188,17 +188,9 @@ class UserFollowerListSerializer(ModelSerializer):
 
 
 class UserFollowingListSerializer(ModelSerializer):
-    id = SerializerMethodField()
-    username = SerializerMethodField()
-
-    def get_username(self, data):
-        return str(CustomUser.objects.get(id=data.following_user.id))
-
-    def get_id(self, data):
-        return str(data.following_user.id)
-
-    def get_profile_picture(self, data):
-        return str(data.following_user.profile_picture)
+    id = ReadOnlyField(source='following_user.id')
+    username = ReadOnlyField(source='following_user.username')
+    profile_picture = ProfilePictureSerializer(source='following_user')
 
     class Meta:
         model = CustomUser
@@ -207,13 +199,10 @@ class UserFollowingListSerializer(ModelSerializer):
 
 class UserActivitySerializer(ModelSerializer):
     date = SerializerMethodField()
-    profile_picture = SerializerMethodField()
+    profile_picture = ProfilePictureSerializer(source='username')
 
     def get_date(self, obj):
         return obj.created_at.strftime("%d %b %Y")
-
-    def get_profile_picture(self, data):
-        return str(data.username.profile_picture)
 
     class Meta:
         model = UserActivity
