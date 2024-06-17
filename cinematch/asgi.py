@@ -1,16 +1,3 @@
-"""
-ASGI config for cinematch project.
-
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/5.0/howto/deployment/asgi/
-"""
-
-import os
-
-from django.core.asgi import get_asgi_application
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "cinematch.settings")
-
-application = get_asgi_application()
+version https://git-lfs.github.com/spec/v1
+oid sha256:6daacce97815416abf020c3b61c809d2aae726eb74a6a60da726ea839711a7db
+size 395
