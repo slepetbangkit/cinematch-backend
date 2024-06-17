@@ -8,6 +8,9 @@
 # Icon must end with two \r
 Icon
 
+# dev scripts
+*.sh
+
 # staticfiles
 static/
 

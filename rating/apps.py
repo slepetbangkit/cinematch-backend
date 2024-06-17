@@ -12,5 +12,5 @@ class RatingConfig(AppConfig):
         load_options = tf.saved_model.LoadOptions(
             experimental_io_device='/job:localhost'
         )
-        path = 'rating/rating_model/'
+        path = 'rating/model/'
         self.sentiment_model = tf.saved_model.load(path, options=load_options)
