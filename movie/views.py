@@ -438,7 +438,7 @@ class PlaylistDetailView(APIView):
                     description += "to their liked movies"
                     activity_type = "LIKED_MOVIE"
                 else:
-                    description += "to their playlist"
+                    description += "to their movie list"
                     activity_type = "ADDED_MOVIE_TO_PLAYLIST"
 
                 UserActivity.objects.create(
