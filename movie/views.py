@@ -294,7 +294,11 @@ class MovieDetailTMDBView(APIView):
                     playlist__user=request.user,
                 )]
                 in_playlists = InPlaylistSerializer(playlists, many=True).data
-                is_liked = True
+                is_liked = PlaylistMovie.objects.filter(
+                        movie=movie,
+                        playlist__user=request.user,
+                        playlist__is_favorite=True,
+                ).exists()
             except Movie.DoesNotExist:
                 rating = 0.0
                 review_count = 0
