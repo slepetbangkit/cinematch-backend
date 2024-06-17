@@ -48,7 +48,7 @@ class ReviewSerializer(ModelSerializer):
 
     def get_profile_picture(self, data):
         if data.user.profile_picture:
-            return data.user_profile_picture.url
+            return data.user.profile_picture.url
         return None
 
     class Meta:
