@@ -1,3 +1,16 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:afabc5f17384657394894e4bf264992b5cb4ebf9762b6bb9e68a03940f1173a5
-size 550
+from django.apps import AppConfig
+
+
+class RatingConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = "rating"
+
+    def ready(self):
+        import tensorflow as tf
+        import tensorflow_text as text
+
+        load_options = tf.saved_model.LoadOptions(
+            experimental_io_device='/job:localhost'
+        )
+        path = 'rating/sentiment_model'
+        self.sentiment_model = tf.saved_model.load(path, options=load_options)

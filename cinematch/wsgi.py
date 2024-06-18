@@ -1,3 +1,17 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:6c7dceed9f3ebfcf2d23b89d6314cb6b4e80a0fb5c17d291e49539045979cb1a
-size 396
+"""
+WSGI config for cinematch project.
+
+It exposes the WSGI callable as a module-level variable named ``application``.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.0/howto/deployment/wsgi/
+"""
+
+import os
+
+
+from django.core.wsgi import get_wsgi_application
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "cinematch.settings")
+
+application = get_wsgi_application()
