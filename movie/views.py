@@ -3,9 +3,10 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
+from django.contrib.auth import get_user_model
 
 from .models import Movie, Playlist, PlaylistMovie, Review
-from user.models import UserActivity
+from user.models import UserActivity, UserFollowing
 from .serializers import (
         MovieSerializer,
         PlaylistSerializer,
@@ -592,89 +593,103 @@ def getReviewDetailById(request, pk):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def getHome(self, request):
-        try:
-            results = {
-                "recommended": [],
-                "friends": [{
-                    "username": "John Doe",
-                    "profile_picture": "https://randomuser.me"
-                }],
-                "verdict": [],
-                "popular": []
-            }
-            # if authenticated, get from ML model else TMDB Popular
-            if(request.user.is_authenticated):
-                # popular movie from tmdbtmdb_api_url = "https://api.themoviedb.org/3"
+class HomeView(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request):
+            try:
+                User = get_user_model()
+                results = {
+                    "recommended": [],
+                    "friends": [],
+                    "verdict": [],
+                    "top_rated": []
+                }
+
+                # if authenticated, get from ML model else TMDB Popular
+                
+                    # popular movie from tmdbtmdb_api_url = "https://api.themoviedb.org/3"
                 url = f"{TMDB_API_URL}/movie/popular?api_key={API_KEY}"
                 headers = {
-                    "accept": "application/json",
-                    "Authorization": f"Bearer {API_KEY}"
-                }
+                        "accept": "application/json",
+                        "Authorization": f"Bearer {API_KEY}"
+                    }
 
                 response = get(url, headers=headers)
 
                 movies = response.json()["results"]
                 for movie in movies:
-                    results["popular"].append({
+                        results["recommended"].append({
+                            "tmdb_id": movie["id"],
+                            "title": movie["title"],
+                            "poster_url": "https://image.tmdb.org/t/p/original/"
+                                        + f"{movie['poster_path']}",
+                        })
+               
+
+                # get friend's liked movies from playlist (is_favorite == True)
+                if request.user.is_authenticated:
+                    # Get the authenticated user instance
+                    following_users = UserFollowing.objects.filter(user=request.user).values_list("following_user", flat=True)
+
+                    # Iterate over each following user
+                    for following_user in following_users:
+                        # Example: Fetch playlists of the following user which are marked as favorite
+                        playlists = Playlist.objects.filter(user=following_user, is_favorite=True)
+
+                        # Iterate over each playlist of the following user
+                        for playlist in playlists:
+                            # Example: Fetch movies in each playlist
+                            for pm in PlaylistMovie.objects.filter(playlist=playlist):
+                                results["friends"].append({
+                                    "tmdb_id": pm.movie.tmdb_id,
+                                    "title": pm.movie.title,
+                                    "poster_url": pm.movie.poster_url,
+                                })
+                        
+                        verdict = Review.objects.filter(user=following_user).order_by("?")[:10]
+                        for review in verdict:
+                            results["verdict"].append({
+                                "tmdb_id": review.movie.tmdb_id,
+                                "title": review.movie.title,
+                                "poster_url": review.movie.poster_url
+                            })
+                                
+                else:
+                    #get empty list for friends and all in verdict
+                    results["friends"] = []
+                    # get random 10 movies from all in movie_review
+
+                    verdict = Review.objects.all().order_by("?")[:10]
+
+                    for review in verdict:
+                        results["verdict"].append({
+                            "tmdb_id": review.movie.tmdb_id,
+                            "title": review.movie.title,
+                            "poster_url": review.movie.poster_url
+                        })
+
+                # get popular movies geolocation based on user's location from tmdb  
+                url = f"{TMDB_API_URL}/movie/top_rated?api_key={API_KEY}"
+                response = get(url, headers=headers)
+                movies = response.json()["results"]
+                for movie in movies:
+                    results["top_rated"].append({
                         "tmdb_id": movie["id"],
                         "title": movie["title"],
                         "poster_url": "https://image.tmdb.org/t/p/original/"
-                                      + f"{movie['poster_path']}",
+                                    + f"{movie['poster_path']}",
                     })
-            else:
-                # get recommended movies from ML model
-                pass
 
-            # get friend's liked movies from playlist (is_favorite == True)
-            friends = request.user.following.all()
-            for friend in friends:
-                for playlist in friend.playlists.all():
-                    if playlist.is_favorite:
-                        for movie in playlist.movies.all():
-                            results["recommended"].append({
-                                "tmdb_id": movie.tmdb_id,
-                                "title": movie.title,
-                                "poster_url": movie.poster_url,
-                            })
+                return Response({
+                    "error": False,
+                    "data": results   
+                }
+                )
+            except Exception as e:
+                return Response({
+                    "error": True,
+                    "message": "An error has occurred.",
+                    "Exception": str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            # their verdict from all in movie_review randomize 10 
-            # get following users' reviews
-
-            friends = request.user.following.all()
-            for friend in friends:
-                for review in friend.reviews.all():
-                    results["verdict"].append({
-                        "tmdb_id": review.movie.tmdb_id,
-                        "title": review.movie.title,
-                        "poster_url": review.movie.poster_url,
-                        "rating": review.rating,
-                        "description": review.description
-                    })
-            #get popular movies geolocation based on user's location from tmdb  
-            dummy_location = "US"
-            url = f"{TMDB_API_URL}/movie/popular?api_key={API_KEY}&region={dummy_location}"
-            response = get(url, headers=headers)
-            movies = response.json()["results"]
-            for movie in movies:
-                results["popular"].append({
-                    "tmdb_id": movie["id"],
-                    "title": movie["title"],
-                    "poster_url": "https://image.tmdb.org/t/p/original/"
-                                  + f"{movie['poster_path']}",
-                })
-
-            return Response({
-                "error": False,
-                "data": results   
-            }
-            )
-        except Exception:
-            return Response({
-                "error": True,
-                "message": "An error has occurred.",
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    
+        
