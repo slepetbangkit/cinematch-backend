@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "movie",
     "rest_framework_simplejwt.token_blacklist",
     "rating",
+    "recommendations",
 ]
 
 REST_FRAMEWORK = {

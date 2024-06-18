@@ -20,6 +20,9 @@ static/
 # Thumbnails
 ._*
 
+# Similarity model files
+recommendations/similarity_model/*.pkl
+
 # Files that might appear on external disk
 .Spotlight-V100
 .Trashes
