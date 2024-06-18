@@ -1,12 +1,11 @@
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from django.contrib.auth import get_user_model
 
 from .models import Movie, Playlist, PlaylistMovie, Review
-from user.models import UserActivity, UserFollowing
+from user.models import UserActivity
 from .serializers import (
         MovieSerializer,
         PlaylistSerializer,
@@ -295,7 +294,11 @@ class MovieDetailTMDBView(APIView):
                     playlist__user=request.user,
                 )]
                 in_playlists = InPlaylistSerializer(playlists, many=True).data
-                is_liked = True
+                is_liked = PlaylistMovie.objects.filter(
+                        movie=movie,
+                        playlist__user=request.user,
+                        playlist__is_favorite=True,
+                ).exists()
             except Movie.DoesNotExist:
                 rating = 0.0
                 review_count = 0
@@ -439,7 +442,7 @@ class PlaylistDetailView(APIView):
                     description += "to their liked movies"
                     activity_type = "LIKED_MOVIE"
                 else:
-                    description += "to their playlist"
+                    description += "to their movie list"
                     activity_type = "ADDED_MOVIE_TO_PLAYLIST"
 
                 UserActivity.objects.create(
@@ -487,7 +490,7 @@ class PlaylistDetailView(APIView):
             playlist.delete()
             return Response(
                     {"message": "Playlist deleted successfully."},
-                    status=status.HTTP_204_NO_CONTENT)
+                    status=status.HTTP_200_OK)
         except Playlist.DoesNotExist:
             return Response({
                 "error": True,
@@ -591,6 +594,7 @@ def getReviewDetailById(request, pk):
             "error": True,
             "message": "An error has occurred.",
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     
 
 class HomeView(APIView):

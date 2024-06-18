@@ -6,7 +6,6 @@ from .views import (
     PlaylistDetailView,
     ReviewView,
     getReviewDetailById,
-    HomeView,
 )
 
 urlpatterns = [
