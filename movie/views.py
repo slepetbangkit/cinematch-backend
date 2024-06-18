@@ -596,7 +596,7 @@ def getReviewDetailById(request, pk):
             "message": "An error has occurred.",
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    
+
 
 class HomeView(APIView):
     permission_classes = (AllowAny,)
@@ -610,7 +610,7 @@ class HomeView(APIView):
                 }
 
                 # if authenticated, get from ML model else TMDB Popular
-                
+
                     # popular movie from tmdbtmdb_api_url = "https://api.themoviedb.org/3"
                 url = f"{TMDB_API_URL}/movie/popular?api_key={API_KEY}"
                 headers = {
@@ -628,7 +628,7 @@ class HomeView(APIView):
                             "poster_url": "https://image.tmdb.org/t/p/original/"
                                         + f"{movie['poster_path']}",
                         })
-               
+
 
                 # get friend's liked movies from playlist (is_favorite == True)
                 if request.user.is_authenticated and UserFollowing.objects.filter(user=request.user).exists():
@@ -651,7 +651,7 @@ class HomeView(APIView):
                                     "username": playlist.user.username,
                                     "user_profile": UserActivitySerializer(UserActivity.objects.filter(username=playlist.user).first()).data.get("profile_picture")
                                 })
-                        
+
                         verdict = Review.objects.filter(user=following_user).order_by("?")[:10]
                         for review in verdict:
                             results["verdict"].append({
@@ -662,7 +662,7 @@ class HomeView(APIView):
                                 "username": review.user.username,
                                 "user_profile": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture")
                             })
-                                
+
                 else:
                     #get empty list for friends and all in verdict
                     results["friends"] = []
@@ -681,7 +681,7 @@ class HomeView(APIView):
 
                         })
 
-                # get popular movies geolocation based on user's location from tmdb  
+                # get popular movies geolocation based on user's location from tmdb
                 url = f"{TMDB_API_URL}/movie/top_rated?api_key={API_KEY}"
                 response = get(url, headers=headers)
                 movies = response.json()["results"]
@@ -695,7 +695,7 @@ class HomeView(APIView):
 
                 return Response({
                     "error": False,
-                    "data": results   
+                    "data": results
                 })
             except Exception as e:
                 return Response({
@@ -704,5 +704,5 @@ class HomeView(APIView):
                     "Exception": str(e)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    
-    
+
+
