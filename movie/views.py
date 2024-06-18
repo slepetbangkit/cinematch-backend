@@ -651,7 +651,9 @@ class HomeView(APIView):
                             results["verdict"].append({
                                 "tmdb_id": review.movie.tmdb_id,
                                 "title": review.movie.title,
-                                "poster_url": review.movie.poster_url
+                                "poster_url": review.movie.poster_url,
+                                "username": review.user.username
+                                # "user_profile": review.user.profile_picture
                             })
                                 
                 else:
@@ -665,7 +667,9 @@ class HomeView(APIView):
                         results["verdict"].append({
                             "tmdb_id": review.movie.tmdb_id,
                             "title": review.movie.title,
-                            "poster_url": review.movie.poster_url
+                            "poster_url": review.movie.poster_url,
+                            "username": review.user.username
+                            # "user_profile": review.user.profile_picture
                         })
 
                 # get popular movies geolocation based on user's location from tmdb  
@@ -683,8 +687,7 @@ class HomeView(APIView):
                 return Response({
                     "error": False,
                     "data": results   
-                }
-                )
+                })
             except Exception as e:
                 return Response({
                     "error": True,
