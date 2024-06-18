@@ -1,19 +1,3 @@
-from django.urls import path
-from .views import (
-    MovieView,
-    MovieDetailTMDBView,
-    PlaylistView,
-    PlaylistDetailView,
-    ReviewView,
-    getReviewDetailById,
-)
-
-urlpatterns = [
-    path('', MovieView.as_view(), name='movies'),
-    path('details/<int:pk>/', MovieDetailTMDBView.as_view(), name='movie-tmdb'),
-    path('details/<int:pk>/review/', ReviewView.as_view(), name='review-movie-by-tmdb-id'),
-    path('review/<uuid:pk>/', getReviewDetailById, name='review-by-id'),
-    path('playlists/', PlaylistView.as_view(), name='playlist'),
-    path('playlists/<uuid:pk>/', PlaylistDetailView.as_view(), name='playlist-edit'),
-    path('home/', HomeView.as_view(), name='home'),
-]
+version https://git-lfs.github.com/spec/v1
+oid sha256:834fa24ac9dabd64a5696a0c1096ae432213a421cfdec883e156360dcf1afe13
+size 706
