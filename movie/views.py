@@ -125,8 +125,7 @@ class MovieView(APIView):
             serializer = MovieSerializer(movies, many=True)
             return Response(serializer.data)
 
-        except Exception as e:
-            raise e
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occurred.",
@@ -743,8 +742,7 @@ class HomeView(APIView):
                 "error": False,
                 "data": results
             })
-        except Exception as e:
-            raise e
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occured.",
@@ -817,8 +815,7 @@ def blendPlaylist(request, username):
             "error": True,
             "message": f"user {username} not found.",
         }, status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        raise e
+    except Exception:
         return Response({
             "error": True,
             "message": "An error has occured.",
