@@ -684,7 +684,7 @@ class HomeView(APIView):
                                 "username": review.user.username,
                                 "profile_picture": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture"),
                                 "description": review.description,
-                                "created_at": review.created_at
+                                "created_at": review.movie.created_at
                             })
 
                 else:
@@ -703,7 +703,7 @@ class HomeView(APIView):
                             "username": review.user.username,
                             "profile_picture": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture"),
                             "description": review.description,
-                            "created_at": review.created_at
+                            "created_at": review.movie.created_at
                         })
 
                 # get popular movies geolocation based on user's location from tmdb
