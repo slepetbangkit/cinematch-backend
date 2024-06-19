@@ -416,7 +416,7 @@ class PlaylistDetailView(APIView):
             )
             # Check if user is the owner of the playlist
             if (playlist.user != request.user
-                    or not blended_playlist.exists()):
+                    and not blended_playlist.exists()):
                 message = "You do not have permission to edit this playlist."
                 return Response({
                     "error": True,
@@ -494,7 +494,7 @@ class PlaylistDetailView(APIView):
             )
             # Check if user is the owner of the playlist
             if (playlist.user != request.user
-                    or not blended_playlist.exists()):
+                    and not blended_playlist.exists()):
                 message = "You do not have permission to edit this playlist."
                 return Response({
                     "error": True,
