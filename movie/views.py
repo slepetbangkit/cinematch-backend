@@ -14,6 +14,7 @@ from .serializers import (
         InPlaylistSerializer,
 )
 from rating.service import get_sentiment_score
+from recommendations.service import recommend_movies
 
 from requests import get
 from pycountry import countries, languages
@@ -609,29 +610,48 @@ class HomeView(APIView):
                     "top_rated": []
                 }
 
-                # if authenticated, get from ML model else TMDB Popular
 
-                    # popular movie from tmdbtmdb_api_url = "https://api.themoviedb.org/3"
-                url = f"{TMDB_API_URL}/movie/popular?api_key={API_KEY}"
-                headers = {
-                        "accept": "application/json",
-                        "Authorization": f"Bearer {API_KEY}"
-                    }
-
-                response = get(url, headers=headers)
-
-                movies = response.json()["results"]
-                for movie in movies:
+                if(request.user.is_authenticated and PlaylistMovie.objects.filter(playlist__user=request.user).exists()):
+                    # get all movies from playlist
+                    playlist_movies = PlaylistMovie.objects.filter(playlist__user=request.user)
+                    selected_movie_indices = [pm.movie.id for pm in playlist_movies]
+                    recommended_movies = recommend_movies(selected_movie_indices,5)
+                    for movie in recommended_movies:
+                        url = f"{TMDB_API_URL}/movie/{movie['tmdb_id']}?api_key={API_KEY}"
+                        headers = {
+                            "accept": "application/json",
+                            "Authorization": f"Bearer {API_KEY}"
+                        }
+                        response = get(url, headers=headers)
+                        movie_detail_data = response.json()
                         results["recommended"].append({
-                            "tmdb_id": movie["id"],
-                            "title": movie["title"],
+                            "tmdb_id": movie_detail_data["id"],
+                            "title": movie_detail_data["title"],
                             "poster_url": "https://image.tmdb.org/t/p/original/"
-                                        + f"{movie['poster_path']}",
+                                        + f"{movie_detail_data['poster_path']}",
                         })
+                else:
+                    # popular movie from tmdbtmdb_api_url = "https://api.themoviedb.org/3"
+                    url = f"{TMDB_API_URL}/movie/popular?api_key={API_KEY}"
+                    headers = {
+                            "accept": "application/json",
+                            "Authorization": f"Bearer {API_KEY}"
+                        }   
+
+                    response = get(url, headers=headers)
+
+                    movies = response.json()["results"]
+                    for movie in movies:
+                            results["recommended"].append({
+                                "tmdb_id": movie["id"],
+                                "title": movie["title"],
+                                "poster_url": "https://image.tmdb.org/t/p/original/"
+                                            + f"{movie['poster_path']}",
+                            })
 
 
                 # get friend's liked movies from playlist (is_favorite == True)
-                if request.user.is_authenticated and UserFollowing.objects.filter(user=request.user).exists():
+                if request.user.is_authenticated and UserFollowing.objects.filter(user=request.user).exists() and Review.objects.filter(user=UserFollowing.objects.filter(user=request.user).values_list("following_user", flat=True)).exists():
                     # Get the authenticated user instance
                     following_users = UserFollowing.objects.filter(user=request.user).values_list("following_user", flat=True)
 
@@ -660,7 +680,9 @@ class HomeView(APIView):
                                 "title": review.movie.title,
                                 "poster_url": review.movie.poster_url,
                                 "username": review.user.username,
-                                "user_profile": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture")
+                                "user_profile": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture"),
+                                "description": review.description,
+                                "created_at": review.created_at
                             })
 
                 else:
@@ -677,8 +699,9 @@ class HomeView(APIView):
                             "title": review.movie.title,
                             "poster_url": review.movie.poster_url,
                             "username": review.user.username,
-                            "user_profile": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture")
-
+                            "user_profile": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture"),
+                            "description": review.description,
+                            "created_at": review.created_at
                         })
 
                 # get popular movies geolocation based on user's location from tmdb
