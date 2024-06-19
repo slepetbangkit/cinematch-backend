@@ -631,7 +631,7 @@ class HomeView(APIView):
                 selected_movie_indices = [pm.movie.tmdb_id for pm in playlist_movies]
                 recommended_movies = recommend_movies(
                         selected_movie_indices,
-                        8,
+                        10,
                 )
                 for movie in recommended_movies:
                     id_tmdb = movie
@@ -659,7 +659,7 @@ class HomeView(APIView):
                 response = get(url, headers=headers)
 
                 movies = response.json()["results"]
-                for movie in movies:
+                for movie in movies[:10]:
                     results["recommended"].append({
                         "tmdb_id": movie["id"],
                         "title": movie["title"],
