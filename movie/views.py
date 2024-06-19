@@ -660,51 +660,46 @@ class HomeView(APIView):
             if (request.user.is_authenticated
                     and UserFollowing.objects.filter(user=request.user).
                     exists()):
-                # Get the authenticated user instance
                 following_users = UserFollowing.objects.filter(
                         user=request.user
                 ).values_list("following_user", flat=True)
 
-                # Iterate over each following user
-                for following_user in following_users:
-                    # Example: Fetch playlists of the following user which are marked as favorite
-                    playlists = Playlist.objects.filter(
-                            user=following_user,
-                            is_favorite=True
-                    )
-                    # Iterate over each playlist of the following user
-                    for playlist in playlists:
-                        # Example: Fetch movies in each playlist
-                        for pm in PlaylistMovie.objects.filter(playlist=playlist):
-                            results["friends"].append({
-                                "tmdb_id": pm.movie.tmdb_id,
-                                "title": pm.movie.title,
-                                "poster_url": pm.movie.poster_url,
-                                "username": playlist.user.username,
-                                "profile_picture": UserActivitySerializer(
-                                    UserActivity.objects.filter(
-                                        username=playlist.user
-                                    ).first()
-                                ).data.get("profile_picture")
-                            })
-                    verdict = Review.objects.filter(
-                            user=following_user
-                    ).order_by("-created_at")[:10]
-                    for review in verdict:
-                        results["verdict"].append({
-                            "review_id": review.id,
-                            "tmdb_id": review.movie.tmdb_id,
-                            "release_date": review.movie.release_date,
-                            "title": review.movie.title,
-                            "poster_url": review.movie.poster_url,
-                            "username": review.user.username,
-                            "profile_picture": UserActivitySerializer(
-                                UserActivity.objects.filter(
-                                    username=review.user
-                                ).first()).data.get("profile_picture"),
-                            "description": review.description,
-                            "reviewed_at": review.created_at
-                        })
+                liked_movies = PlaylistMovie.objects.filter(
+                        playlist__is_favorite=True,
+                        playlist__user__in=following_users,
+                ).order_by('-added_at')[:10]
+
+                for pm in liked_movies:
+                    results["friends"].append({
+                        "tmdb_id": pm.movie.tmdb_id,
+                        "title": pm.movie.title,
+                        "poster_url": pm.movie.poster_url,
+                        "username": pm.playlist.user.username,
+                        "profile_picture": UserActivitySerializer(
+                            UserActivity.objects.filter(
+                                username=pm.playlist.user
+                            ).first()
+                        ).data.get("profile_picture")
+                    })
+
+                verdict = Review.objects.filter(
+                        user__in=following_users
+                ).order_by("-created_at")[:10]
+                for review in verdict:
+                    results["verdict"].append({
+                        "review_id": review.id,
+                        "tmdb_id": review.movie.tmdb_id,
+                        "release_date": review.movie.release_date,
+                        "title": review.movie.title,
+                        "poster_url": review.movie.poster_url,
+                        "username": review.user.username,
+                        "profile_picture": UserActivitySerializer(
+                            UserActivity.objects.filter(
+                                username=review.user
+                            ).first()).data.get("profile_picture"),
+                        "description": review.description,
+                        "reviewed_at": review.created_at
+                    })
             else:
                 # get empty list for friends and all in verdict
                 results["friends"] = []
