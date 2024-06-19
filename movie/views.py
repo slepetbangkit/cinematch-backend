@@ -52,14 +52,14 @@ def createMovieFromTMDB(id):
             break
 
     movie = Movie.objects.create(
-                tmdb_id=movie_detail_data["id"],
-                title=movie_detail_data["title"],
-                poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
-                description=movie_detail_data["overview"],
-                director=director,
-                release_date=movie_detail_data["release_date"],
-                rating=0.0
-            )
+        tmdb_id=movie_detail_data["id"],
+        title=movie_detail_data["title"],
+        poster_url=f"https://image.tmdb.org/t/p/original/{movie_detail_data['poster_path']}",
+        description=movie_detail_data["overview"],
+        director=director,
+        release_date=movie_detail_data["release_date"],
+        rating=0.0
+    )
     return movie
 
 
@@ -352,10 +352,15 @@ class PlaylistView(APIView):
 
     def get(self, request):
         try:
-            playlists = Playlist.objects.filter(user=request.user)
+            blended_playlists = BlendedPlaylist.objects.filter(
+                    second_user=request.user
+            ).values('playlist')
+            playlists = Playlist.objects.filter(user=request.user) | \
+                Playlist.objects.filter(pk__in=blended_playlists)
             serializer = PlaylistSerializer(playlists, many=True)
             return Response(serializer.data)
-        except Exception:
+        except Exception as e:
+            raise e
             return Response({
                 "error": True,
                 "message": "An error has occured.",
@@ -406,9 +411,12 @@ class PlaylistDetailView(APIView):
     def patch(self, request, pk):
         try:
             playlist = Playlist.objects.get(pk=pk)
-
+            blended_playlist = BlendedPlaylist.objects.filter(
+                    playlist=playlist, second_user=request.user
+            )
             # Check if user is the owner of the playlist
-            if playlist.user != request.user:
+            if (playlist.user != request.user
+                    or not blended_playlist.exists()):
                 message = "You do not have permission to edit this playlist."
                 return Response({
                     "error": True,
@@ -481,14 +489,18 @@ class PlaylistDetailView(APIView):
     def delete(self, request, pk):
         try:
             playlist = Playlist.objects.get(pk=pk)
-
+            blended_playlist = BlendedPlaylist.objects.filter(
+                    playlist=playlist, second_user=request.user
+            )
             # Check if user is the owner of the playlist
-            message = "You do not have permission to delete this playlist."
-            if playlist.user != request.user:
+            if (playlist.user != request.user
+                    or not blended_playlist.exists()):
+                message = "You do not have permission to edit this playlist."
                 return Response({
                     "error": True,
                     "message": message,
                 }, status=status.HTTP_403_FORBIDDEN)
+
             playlist.delete()
             return Response(
                     {"message": "Playlist deleted successfully."},
