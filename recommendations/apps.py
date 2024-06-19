@@ -21,7 +21,7 @@ class RecommendationsConfig(AppConfig):
             print("Directory NOT FOUND!")
 
             if not os.path.isfile(f"{path}.zip"):
-                print("Downloading from bucket..\n")
+                print("Downloading from bucket...\n")
 
                 storage_client = storage.Client()
                 bucket_name = settings.GS_BUCKET_NAME
@@ -29,12 +29,12 @@ class RecommendationsConfig(AppConfig):
                 blob = bucket.blob('models/similarity/similarity_model.zip')
                 blob.download_to_filename(f'{path}.zip')
                 print(
-                    "\n\nDownloaded object {} from bucket {} to local file {}."
+                    "Downloaded object {} from bucket {} to local file {}."
                     .format(
                         'similarity_model.zip', bucket_name, f'{path}.zip'
                     )
                 )
-            print("\n\nExtracting similarity_model.zip\n")
+            print("\nExtracting similarity_model.zip file...")
             with zipfile.ZipFile(f'{path}.zip', 'r') as zip_ref:
                 zip_ref.extractall(f'{path}/')
             os.remove(f'{path}.zip')
