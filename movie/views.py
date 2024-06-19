@@ -689,7 +689,7 @@ class HomeView(APIView):
                             })
                     verdict = Review.objects.filter(
                             user=following_user
-                    ).order_by("?")[:10]
+                    ).order_by("-created_at")[:10]
                     for review in verdict:
                         results["verdict"].append({
                             "review_id": review.id,
@@ -710,7 +710,7 @@ class HomeView(APIView):
                 results["friends"] = []
 
                 # get random 10 movies from all in movie_review
-                verdict = Review.objects.all().order_by("?")[:10]
+                verdict = Review.objects.all().order_by("-created_at")[:10]
 
                 for review in verdict:
                     results["verdict"].append({
