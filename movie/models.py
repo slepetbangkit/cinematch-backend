@@ -84,6 +84,7 @@ class Review(models.Model):
             self.sentiment = "negative"
         super(Review, self).save(*args, **kwargs)
 
+
 class BlendedPlaylist(models.Model):
     playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE)
     second_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)

@@ -7,7 +7,7 @@ from .views import (
     ReviewView,
     getReviewDetailById,
     HomeView,
-    BlendedPlaylistView
+    blendPlaylist,
 )
 
 urlpatterns = [
@@ -18,5 +18,5 @@ urlpatterns = [
     path('playlists/', PlaylistView.as_view(), name='playlist'),
     path('playlists/<uuid:pk>/', PlaylistDetailView.as_view(), name='playlist-edit'),
     path('home/', HomeView.as_view(), name='home'),
-    path('blended-playlists/', BlendedPlaylistView.as_view(), name='blended-playlists'),
+    path('playlists/blend/<str:username>/', blendPlaylist, name='blend-playlists'),
 ]

@@ -54,12 +54,3 @@ class ReviewSerializer(ModelSerializer):
     class Meta:
         model = Review
         fields = '__all__'
-
-class BlendedPlaylistSerializer(ModelSerializer):
-    playlist = PlaylistSerializer(read_only=True)
-    second_user_username = ReadOnlyField(source='second_user.username')
-
-    class Meta:
-        model = BlendedPlaylist
-        fields = ['id', 'playlist', 'second_user', 'second_user_username', 'added_at']
-        read_only_fields = ['added_at']
