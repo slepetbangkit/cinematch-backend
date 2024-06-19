@@ -125,7 +125,8 @@ class MovieView(APIView):
             serializer = MovieSerializer(movies, many=True)
             return Response(serializer.data)
 
-        except Exception:
+        except Exception as e:
+            raise e
             return Response({
                 "error": True,
                 "message": "An error has occurred.",
@@ -637,7 +638,7 @@ class HomeView(APIView):
                     headers = {
                             "accept": "application/json",
                             "Authorization": f"Bearer {API_KEY}"
-                        }   
+                        }
 
                     response = get(url, headers=headers)
 

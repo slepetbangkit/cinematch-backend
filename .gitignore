@@ -21,7 +21,7 @@ static/
 ._*
 
 # Similarity model files
-recommendations/similarity_model/*.pkl
+recommendations/similarity_model/similarity.pkl
 
 # Files that might appear on external disk
 .Spotlight-V100
