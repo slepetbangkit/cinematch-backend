@@ -12,6 +12,7 @@ from .serializers import (
         PlaylistSerializer,
         ReviewSerializer,
         InPlaylistSerializer,
+        BlendedPlaylistSerializer
 )
 from rating.service import get_sentiment_score
 from recommendations.service import recommend_movies
@@ -729,3 +730,5 @@ class HomeView(APIView):
                 }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class BlendedPlaylistView(APIView):
+    permission_classes = (IsAuthenticated,)
