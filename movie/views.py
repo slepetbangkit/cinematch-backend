@@ -614,10 +614,11 @@ class HomeView(APIView):
                 if(request.user.is_authenticated and PlaylistMovie.objects.filter(playlist__user=request.user).exists()):
                     # get all movies from playlist
                     playlist_movies = PlaylistMovie.objects.filter(playlist__user=request.user)
-                    selected_movie_indices = [pm.movie.id for pm in playlist_movies]
+                    selected_movie_indices = [pm.movie.tmdb_id for pm in playlist_movies]
                     recommended_movies = recommend_movies(selected_movie_indices,5)
                     for movie in recommended_movies:
-                        url = f"{TMDB_API_URL}/movie/{movie['tmdb_id']}?api_key={API_KEY}"
+                        id_tmdb = movie
+                        url = f"{TMDB_API_URL}/movie/{id_tmdb}?api_key={API_KEY}"
                         headers = {
                             "accept": "application/json",
                             "Authorization": f"Bearer {API_KEY}"
@@ -651,7 +652,7 @@ class HomeView(APIView):
 
 
                 # get friend's liked movies from playlist (is_favorite == True)
-                if request.user.is_authenticated and UserFollowing.objects.filter(user=request.user).exists() and Review.objects.filter(user=UserFollowing.objects.filter(user=request.user).values_list("following_user", flat=True)).exists():
+                if request.user.is_authenticated and UserFollowing.objects.filter(user=request.user).exists():
                     # Get the authenticated user instance
                     following_users = UserFollowing.objects.filter(user=request.user).values_list("following_user", flat=True)
 
@@ -669,7 +670,7 @@ class HomeView(APIView):
                                     "title": pm.movie.title,
                                     "poster_url": pm.movie.poster_url,
                                     "username": playlist.user.username,
-                                    "user_profile": UserActivitySerializer(UserActivity.objects.filter(username=playlist.user).first()).data.get("profile_picture")
+                                    "profile_picture": UserActivitySerializer(UserActivity.objects.filter(username=playlist.user).first()).data.get("profile_picture")
                                 })
 
                         verdict = Review.objects.filter(user=following_user).order_by("?")[:10]
@@ -680,7 +681,7 @@ class HomeView(APIView):
                                 "title": review.movie.title,
                                 "poster_url": review.movie.poster_url,
                                 "username": review.user.username,
-                                "user_profile": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture"),
+                                "profile_picture": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture"),
                                 "description": review.description,
                                 "created_at": review.created_at
                             })
@@ -699,7 +700,7 @@ class HomeView(APIView):
                             "title": review.movie.title,
                             "poster_url": review.movie.poster_url,
                             "username": review.user.username,
-                            "user_profile": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture"),
+                            "profile_picture": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture"),
                             "description": review.description,
                             "created_at": review.created_at
                         })
@@ -721,11 +722,10 @@ class HomeView(APIView):
                     "data": results
                 })
             except Exception as e:
+                raise e
                 return Response({
                     "error": True,
-                    "message": "An error has occurred.",
-                    "Exception": str(e)
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+                    "message": "An error has occured.",
+                }, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
