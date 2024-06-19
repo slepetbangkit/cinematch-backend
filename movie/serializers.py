@@ -45,6 +45,9 @@ class InPlaylistSerializer(ModelSerializer):
 class ReviewSerializer(ModelSerializer):
     username = ReadOnlyField(source='user.username')
     profile_picture = SerializerMethodField()
+    title = ReadOnlyField(source='movie.title')
+    release_date = ReadOnlyField(source='movie.release_date')
+
 
     def get_profile_picture(self, data):
         if data.user.profile_picture:
