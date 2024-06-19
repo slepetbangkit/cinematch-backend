@@ -1,5 +1,6 @@
 import os
 import zipfile
+import urllib.request
 from django.conf import settings
 from django.apps import AppConfig
 
@@ -21,13 +22,12 @@ class RecommendationsConfig(AppConfig):
             print("Directory NOT FOUND!")
 
             if not os.path.isfile(f"{path}.zip"):
-                print("Downloading from bucket...\n")
-
-                storage_client = storage.Client()
                 bucket_name = settings.GS_BUCKET_NAME
-                bucket = storage_client.bucket(bucket_name)
-                blob = bucket.blob('models/similarity/similarity_model.zip')
-                blob.download_to_filename(f'{path}.zip')
+                object_path = f'{bucket_name}/models/similarity/similarity_model.zip'
+                url = f"https://storage.googleapis.com/{object_path}"
+
+                print("Downloading from bucket...\n", url, "\n")
+                urllib.request.urlretrieve(url, f"{path}.zip")
                 print(
                     "Downloaded object {} from bucket {} to local file {}."
                     .format(
