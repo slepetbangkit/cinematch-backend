@@ -98,8 +98,7 @@ class ProfileView(APIView):
                 "error": True,
                 'message': "Unauthorized.",
             }, status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            print(e)
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occured.",

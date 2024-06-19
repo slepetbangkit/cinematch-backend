@@ -1,5 +1,3 @@
-import datetime
-
 from django.contrib.auth import password_validation as validators
 from rest_framework.serializers import (
         ModelSerializer,
@@ -14,7 +12,7 @@ from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import CustomUser, UserFollowing, UserActivity
-from movie.models import Playlist
+from movie.models import Playlist, BlendedPlaylist
 from movie.serializers import PlaylistSerializer
 
 
@@ -86,6 +84,7 @@ class RegisterSerializer(ModelSerializer):
 class ProfileSerializer(ModelSerializer):
     is_followed = SerializerMethodField()
     is_following_user = SerializerMethodField()
+    is_blended = SerializerMethodField()
     playlists = SerializerMethodField()
 
     def get_is_followed(self, obj):
@@ -102,6 +101,13 @@ class ProfileSerializer(ModelSerializer):
         return UserFollowing.objects. \
             filter(user=obj, following_user=current_user).exists()
 
+    def get_is_blended(self, obj):
+        current_user = self.context['request'].user
+        return (
+            BlendedPlaylist.objects.filter(playlist__user=current_user, second_user=obj).exists()
+            or BlendedPlaylist.objects.filter(playlist__user=obj, second_user=current_user).exists()
+        )
+
     def get_playlists(self, obj):
         playlists = Playlist.objects.filter(user=obj)
         return PlaylistSerializer(playlists, many=True).data
@@ -113,6 +119,7 @@ class ProfileSerializer(ModelSerializer):
             'username',
             'is_followed',
             'is_following_user',
+            'is_blended',
             'profile_picture',
             'bio',
             'follower_count',

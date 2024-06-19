@@ -4,7 +4,7 @@ from rest_framework.serializers import (
         ReadOnlyField,
         CharField,
 )
-from .models import Movie, Playlist, Review, PlaylistMovie
+from .models import Movie, Playlist, Review, PlaylistMovie, BlendedPlaylist
 
 
 class MovieSerializer(ModelSerializer):

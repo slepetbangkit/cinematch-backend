@@ -83,3 +83,12 @@ class Review(models.Model):
         else:
             self.sentiment = "negative"
         super(Review, self).save(*args, **kwargs)
+
+
+class BlendedPlaylist(models.Model):
+    playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE)
+    second_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('playlist', 'second_user')

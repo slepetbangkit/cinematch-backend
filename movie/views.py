@@ -4,8 +4,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 
-from .models import Movie, Playlist, PlaylistMovie, Review
-from user.models import UserActivity, UserFollowing
+from .models import Movie, Playlist, PlaylistMovie, Review, BlendedPlaylist
+from user.models import UserActivity, UserFollowing, CustomUser
 from user.serializers import UserActivitySerializer
 from .serializers import (
         MovieSerializer,
@@ -125,8 +125,7 @@ class MovieView(APIView):
             serializer = MovieSerializer(movies, many=True)
             return Response(serializer.data)
 
-        except Exception as e:
-            raise e
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occurred.",
@@ -738,9 +737,81 @@ class HomeView(APIView):
                 "error": False,
                 "data": results
             })
-        except Exception as e:
-            raise e
+        except Exception:
             return Response({
                 "error": True,
                 "message": "An error has occured.",
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated,])
+def blendPlaylist(request, username):
+    try:
+        second_user = CustomUser.objects.get(username=username)
+        if (not BlendedPlaylist.objects.filter(
+                playlist__user=request.user, second_user=second_user
+                ).exists()):
+            second_liked_movies = Playlist.objects.get(
+                    user=second_user,
+                    is_favorite=True
+            ).movies.all()[:10]
+            first_liked_movies = Playlist.objects.get(
+                    user=request.user,
+                    is_favorite=True
+            ).movies.all()[:10]
+            if (first_liked_movies.count() > 0
+                    and second_liked_movies.count() > 0):
+                # movies =
+                print(first_liked_movies)
+                print(second_liked_movies)
+                movies = ([m.tmdb_id for m in first_liked_movies]
+                          + [m.tmdb_id for m in second_liked_movies])
+                recommended_movies = recommend_movies(
+                    movies,
+                    20,
+                )
+                print(recommended_movies)
+                playlist = Playlist.objects.create(
+                    user=request.user,
+                    title=f"{request.user.username} and {username}'s blend"
+                )
+                BlendedPlaylist.objects.create(
+                        playlist=playlist,
+                        second_user=second_user
+                )
+                for movie_id in movies:
+                    movie = Movie.objects.filter(tmdb_id=movie_id)
+                    if movie.exists():
+                        movie = movie.first()
+                    else:
+                        movie = createMovieFromTMDB(movie_id)
+                    PlaylistMovie.objects.get_or_create(playlist=playlist,
+                                                        movie=movie)
+                return Response({
+                    "error": False,
+                    "message": "ok"
+                })
+            return Response({
+                "error": True,
+                "message": "One of the users have empty Liked Movies list."
+            })
+        return Response({
+            "error": True,
+            "message": "Already blended a playlist with user."
+        })
+    except Playlist.DoesNotExist:
+        return Response({
+            "error": True,
+            "message": "One of the users does not have a Liked Movies list.",
+        }, status.HTTP_404_NOT_FOUND)
+    except CustomUser.DoesNotExist:
+        return Response({
+            "error": True,
+            "message": f"user {username} not found.",
+        }, status.HTTP_404_NOT_FOUND)
+    except Exception:
+        return Response({
+            "error": True,
+            "message": "An error has occured.",
+        }, status.HTTP_500_INTERNAL_SERVER_ERROR)
