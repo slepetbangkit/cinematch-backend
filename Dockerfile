@@ -17,6 +17,17 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Ensure the directory exists before adding the file
+RUN mkdir -p recommendations/similarity_model/
+
+# Add the file to the desired location within the project
+ADD https://storage.googleapis.com/cinematch-c241-ps352/models/similarity/similarity_model/similarity.pkl \
+    recommendations/similarity_model/similarity.pkl
+ADD https://storage.googleapis.com/cinematch-c241-ps352/models/similarity/similarity_model/features.pkl \
+    recommendations/similarity_model/features.pkl
+ADD https://storage.googleapis.com/cinematch-c241-ps352/models/similarity/similarity_model/movies.pkl \
+    recommendations/similarity_model/movies.pkl
+
 # Copy the Django project code into the container
 COPY . .
 
