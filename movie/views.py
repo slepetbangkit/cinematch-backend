@@ -1,5 +1,5 @@
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated,AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -599,134 +599,153 @@ def getReviewDetailById(request, pk):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
 class HomeView(APIView):
     permission_classes = (AllowAny,)
+
     def get(self, request):
-            try:
-                results = {
-                    "recommended": [],
-                    "friends": [],
-                    "verdict": [],
-                    "top_rated": []
-                }
-
-
-                if(request.user.is_authenticated and PlaylistMovie.objects.filter(playlist__user=request.user).exists()):
-                    # get all movies from playlist
-                    playlist_movies = PlaylistMovie.objects.filter(playlist__user=request.user)
-                    selected_movie_indices = [pm.movie.tmdb_id for pm in playlist_movies]
-                    recommended_movies = recommend_movies(selected_movie_indices,5)
-                    for movie in recommended_movies:
-                        id_tmdb = movie
-                        url = f"{TMDB_API_URL}/movie/{id_tmdb}?api_key={API_KEY}"
-                        headers = {
-                            "accept": "application/json",
-                            "Authorization": f"Bearer {API_KEY}"
-                        }
-                        response = get(url, headers=headers)
-                        movie_detail_data = response.json()
-                        results["recommended"].append({
-                            "tmdb_id": movie_detail_data["id"],
-                            "title": movie_detail_data["title"],
-                            "poster_url": "https://image.tmdb.org/t/p/original/"
-                                        + f"{movie_detail_data['poster_path']}",
-                        })
-                else:
-                    # popular movie from tmdbtmdb_api_url = "https://api.themoviedb.org/3"
-                    url = f"{TMDB_API_URL}/movie/popular?api_key={API_KEY}"
+        try:
+            results = {
+                "recommended": [],
+                "friends": [],
+                "verdict": [],
+                "top_rated": []
+            }
+            if (request.user.is_authenticated
+                and PlaylistMovie.objects.
+                    filter(playlist__user=request.user).exists()):
+                # get all movies from playlist
+                playlist_movies = PlaylistMovie.objects.filter(
+                        playlist__user=request.user
+                )
+                selected_movie_indices = [pm.movie.tmdb_id for pm in playlist_movies]
+                recommended_movies = recommend_movies(
+                        selected_movie_indices,
+                        8,
+                )
+                for movie in recommended_movies:
+                    id_tmdb = movie
+                    url = f"{TMDB_API_URL}/movie/{id_tmdb}?api_key={API_KEY}"
                     headers = {
-                            "accept": "application/json",
-                            "Authorization": f"Bearer {API_KEY}"
-                        }
-
+                        "accept": "application/json",
+                        "Authorization": f"Bearer {API_KEY}"
+                    }
                     response = get(url, headers=headers)
+                    movie_detail_data = response.json()
+                    results["recommended"].append({
+                        "tmdb_id": movie_detail_data["id"],
+                        "title": movie_detail_data["title"],
+                        "poster_url": "https://image.tmdb.org/t/p/original/"
+                        + f"{movie_detail_data['poster_path']}",
+                    })
+            else:
+                # popular movie from tmdbtmdb_api_url = "https://api.themoviedb.org/3"
+                url = f"{TMDB_API_URL}/movie/popular?api_key={API_KEY}"
+                headers = {
+                        "accept": "application/json",
+                        "Authorization": f"Bearer {API_KEY}"
+                    }
 
-                    movies = response.json()["results"]
-                    for movie in movies:
-                            results["recommended"].append({
-                                "tmdb_id": movie["id"],
-                                "title": movie["title"],
-                                "poster_url": "https://image.tmdb.org/t/p/original/"
-                                            + f"{movie['poster_path']}",
+                response = get(url, headers=headers)
+
+                movies = response.json()["results"]
+                for movie in movies:
+                    results["recommended"].append({
+                        "tmdb_id": movie["id"],
+                        "title": movie["title"],
+                        "poster_url": "https://image.tmdb.org/t/p/original/"
+                        + f"{movie['poster_path']}",
+                    })
+
+            # get friend's liked movies from playlist (is_favorite == True)
+            if (request.user.is_authenticated
+                    and UserFollowing.objects.filter(user=request.user).
+                    exists()):
+                # Get the authenticated user instance
+                following_users = UserFollowing.objects.filter(
+                        user=request.user
+                ).values_list("following_user", flat=True)
+
+                # Iterate over each following user
+                for following_user in following_users:
+                    # Example: Fetch playlists of the following user which are marked as favorite
+                    playlists = Playlist.objects.filter(
+                            user=following_user,
+                            is_favorite=True
+                    )
+                    # Iterate over each playlist of the following user
+                    for playlist in playlists:
+                        # Example: Fetch movies in each playlist
+                        for pm in PlaylistMovie.objects.filter(playlist=playlist):
+                            results["friends"].append({
+                                "tmdb_id": pm.movie.tmdb_id,
+                                "title": pm.movie.title,
+                                "poster_url": pm.movie.poster_url,
+                                "username": playlist.user.username,
+                                "profile_picture": UserActivitySerializer(
+                                    UserActivity.objects.filter(
+                                        username=playlist.user
+                                    ).first()
+                                ).data.get("profile_picture")
                             })
-
-
-                # get friend's liked movies from playlist (is_favorite == True)
-                if request.user.is_authenticated and UserFollowing.objects.filter(user=request.user).exists():
-                    # Get the authenticated user instance
-                    following_users = UserFollowing.objects.filter(user=request.user).values_list("following_user", flat=True)
-
-                    # Iterate over each following user
-                    for following_user in following_users:
-                        # Example: Fetch playlists of the following user which are marked as favorite
-                        playlists = Playlist.objects.filter(user=following_user, is_favorite=True)
-
-                        # Iterate over each playlist of the following user
-                        for playlist in playlists:
-                            # Example: Fetch movies in each playlist
-                            for pm in PlaylistMovie.objects.filter(playlist=playlist):
-                                results["friends"].append({
-                                    "tmdb_id": pm.movie.tmdb_id,
-                                    "title": pm.movie.title,
-                                    "poster_url": pm.movie.poster_url,
-                                    "username": playlist.user.username,
-                                    "profile_picture": UserActivitySerializer(UserActivity.objects.filter(username=playlist.user).first()).data.get("profile_picture")
-                                })
-
-                        verdict = Review.objects.filter(user=following_user).order_by("?")[:10]
-                        for review in verdict:
-                            results["verdict"].append({
-                                "review_id": review.id,
-                                "tmdb_id": review.movie.tmdb_id,
-                                "title": review.movie.title,
-                                "poster_url": review.movie.poster_url,
-                                "username": review.user.username,
-                                "profile_picture": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture"),
-                                "description": review.description,
-                                "created_at": review.created_at
-                            })
-
-                else:
-                    #get empty list for friends and all in verdict
-                    results["friends"] = []
-                    # get random 10 movies from all in movie_review
-
-                    verdict = Review.objects.all().order_by("?")[:10]
-
+                    verdict = Review.objects.filter(
+                            user=following_user
+                    ).order_by("?")[:10]
                     for review in verdict:
                         results["verdict"].append({
                             "review_id": review.id,
                             "tmdb_id": review.movie.tmdb_id,
+                            "release_date": review.movie.release_date,
                             "title": review.movie.title,
                             "poster_url": review.movie.poster_url,
                             "username": review.user.username,
-                            "profile_picture": UserActivitySerializer(UserActivity.objects.filter(username=review.user).first()).data.get("profile_picture"),
+                            "profile_picture": UserActivitySerializer(
+                                UserActivity.objects.filter(
+                                    username=review.user
+                                ).first()).data.get("profile_picture"),
                             "description": review.description,
-                            "created_at": review.created_at
+                            "reviewed_at": review.created_at
                         })
+            else:
+                # get empty list for friends and all in verdict
+                results["friends"] = []
 
-                # get popular movies geolocation based on user's location from tmdb
-                url = f"{TMDB_API_URL}/movie/top_rated?api_key={API_KEY}"
-                response = get(url, headers=headers)
-                movies = response.json()["results"]
-                for movie in movies:
-                    results["top_rated"].append({
-                        "tmdb_id": movie["id"],
-                        "title": movie["title"],
-                        "poster_url": "https://image.tmdb.org/t/p/original/"
-                                    + f"{movie['poster_path']}",
+                # get random 10 movies from all in movie_review
+                verdict = Review.objects.all().order_by("?")[:10]
+
+                for review in verdict:
+                    results["verdict"].append({
+                        "review_id": review.id,
+                        "tmdb_id": review.movie.tmdb_id,
+                        "release_date": review.movie.release_date,
+                        "title": review.movie.title,
+                        "poster_url": review.movie.poster_url,
+                        "username": review.user.username,
+                        "profile_picture": UserActivitySerializer(
+                            UserActivity.objects.filter(
+                                username=review.user
+                            ).first()
+                        ).data.get("profile_picture"),
+                        "description": review.description,
+                        "reviewed_at": review.created_at,
                     })
-
-                return Response({
-                    "error": False,
-                    "data": results
+            # get popular movies geolocation based on user's location from tmdb
+            url = f"{TMDB_API_URL}/movie/top_rated?api_key={API_KEY}"
+            response = get(url, headers=headers)
+            movies = response.json()["results"]
+            for movie in movies:
+                results["top_rated"].append({
+                    "tmdb_id": movie["id"],
+                    "title": movie["title"],
+                    "poster_url": "https://image.tmdb.org/t/p/original/"
+                    + f"{movie['poster_path']}",
                 })
-            except Exception as e:
-                raise e
-                return Response({
-                    "error": True,
-                    "message": "An error has occured.",
-                }, status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
+            return Response({
+                "error": False,
+                "data": results
+            })
+        except Exception as e:
+            raise e
+            return Response({
+                "error": True,
+                "message": "An error has occured.",
+            }, status.HTTP_500_INTERNAL_SERVER_ERROR)
