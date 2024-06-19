@@ -621,6 +621,7 @@ class HomeView(APIView):
                 "verdict": [],
                 "top_rated": []
             }
+            recommendations_available = False
             if (request.user.is_authenticated
                 and PlaylistMovie.objects.
                     filter(playlist__user=request.user).exists()):
@@ -633,29 +634,30 @@ class HomeView(APIView):
                         selected_movie_indices,
                         10,
                 )
-                for movie in recommended_movies:
-                    id_tmdb = movie
-                    url = f"{TMDB_API_URL}/movie/{id_tmdb}?api_key={API_KEY}"
-                    headers = {
-                        "accept": "application/json",
-                        "Authorization": f"Bearer {API_KEY}"
-                    }
-                    response = get(url, headers=headers)
-                    movie_detail_data = response.json()
-                    results["recommended"].append({
-                        "tmdb_id": movie_detail_data["id"],
-                        "title": movie_detail_data["title"],
-                        "poster_url": "https://image.tmdb.org/t/p/original/"
-                        + f"{movie_detail_data['poster_path']}",
-                    })
-            else:
+                recommendations_available = bool(recommended_movies)
+                if recommendations_available:
+                    for movie in recommended_movies:
+                        id_tmdb = movie
+                        url = f"{TMDB_API_URL}/movie/{id_tmdb}?api_key={API_KEY}"
+                        headers = {
+                            "accept": "application/json",
+                            "Authorization": f"Bearer {API_KEY}"
+                        }
+                        response = get(url, headers=headers)
+                        movie_detail_data = response.json()
+                        results["recommended"].append({
+                            "tmdb_id": movie_detail_data["id"],
+                            "title": movie_detail_data["title"],
+                            "poster_url": "https://image.tmdb.org/t/p/original/"
+                            + f"{movie_detail_data['poster_path']}",
+                        })
+            if not recommendations_available:
                 # popular movie from tmdbtmdb_api_url = "https://api.themoviedb.org/3"
                 url = f"{TMDB_API_URL}/movie/popular?api_key={API_KEY}"
                 headers = {
                         "accept": "application/json",
                         "Authorization": f"Bearer {API_KEY}"
                     }
-
                 response = get(url, headers=headers)
 
                 movies = response.json()["results"]

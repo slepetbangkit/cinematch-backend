@@ -32,7 +32,7 @@ def recommend_movies(movies_id, number):
 
     if not valid_movie_ids:
         print('Tidak ada film yang sesuai dengan ID yang diberikan.')
-        return
+        return []
 
     # Mengambil indeks film yang dipilih dari DataFrame movies
     selected_movie_indices = [MOVIES[MOVIES['Movie_id'] == movie].
