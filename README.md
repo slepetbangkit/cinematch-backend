@@ -16,7 +16,7 @@ Cinematch is a social media application designed for movie lovers. It allows use
 
 - Clone this repository (with HTTPS preferred)
   ```bash
-  $ git clone https://gitlab.com/tsanny/cinematch-backend
+  $ git clone https://gitlab.com/slepetbangkit/cinematch-backend
   ```
 - Activate virtualenv, or create one if none has been created
   ```bash
@@ -25,6 +25,24 @@ Cinematch is a social media application designed for movie lovers. It allows use
 - Install required packages
   ```bash
   $ pip install -r requirements.txt
+  ```
+- Create a .env file
+- ```
+  # For production purposes. The API uses an SQLite locally
+  PGDATABASE=
+  PGHOST=
+  PGPASSWORD=
+  PGPORT=
+  PGUSER=
+  
+  PRODUCTION=
+  DEBUG=
+  SECRET_KEY=
+  APP_URL=
+  GS_PROJECT_ID=
+  GS_SERVICE_ACCOUNT_KEY=
+  GS_BUCKET_NAME=
+  TMDB_API_KEY=
   ```
 - Migrate if needed
   ```bash
