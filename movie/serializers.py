@@ -52,7 +52,6 @@ class ReviewSerializer(ModelSerializer):
     title = ReadOnlyField(source='movie.title')
     release_date = ReadOnlyField(source='movie.release_date')
 
-
     def get_profile_picture(self, data):
         if data.user.profile_picture:
             return data.user.profile_picture.url

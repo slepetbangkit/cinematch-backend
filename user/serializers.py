@@ -159,14 +159,16 @@ class UserFollowingSerializer(ModelSerializer):
         user = data['user']
         following_user = data['following_user']
 
+        userFollowing = UserFollowing.objects.create(
+                user=user,
+                following_user=following_user,
+        )
         user.following_count = user.following_count + 1
         user.save()
         following_user.follower_count = following_user.follower_count + 1
         following_user.save()
 
-        return UserFollowing.objects.create(
-                user=user,
-                following_user=following_user,)
+        return userFollowing
 
     def delete(self, data):
         user = data['user']
