@@ -10,10 +10,12 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import os
+import ast
 from pathlib import Path
 from datetime import timedelta
-import os
 from dotenv import load_dotenv
+from google.oauth2 import service_account
 
 # Load .env variables
 load_dotenv()
@@ -50,6 +52,8 @@ INSTALLED_APPS = [
     "user",
     "movie",
     "rest_framework_simplejwt.token_blacklist",
+    "rating",
+    "recommendations",
 ]
 
 REST_FRAMEWORK = {
@@ -184,12 +188,28 @@ USE_TZ = True
 
 # static file with gcloud storage
 STATIC_ROOT = 'static/'
-if PRODUCTION:
-    STATIC_URL = 'https://storage.googleapis.com/cinematch-c241-ps352/static/'
-else:
-    STATIC_URL = 'static/'
+STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# Google Cloud Storage Bucket
+
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.gcloud.GoogleCloudStorage"
+    },
+    "staticfiles": {
+        "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        "OPTIONS": {
+            "location": "static/",
+        }
+    }
+}
+GS_BUCKET_NAME = os.environ.get("GS_BUCKET_NAME")
+GS_CREDENTIALS = service_account.Credentials.from_service_account_info(
+    ast.literal_eval(str(os.environ.get("GS_SERVICE_ACCOUNT_KEY"))),
+)

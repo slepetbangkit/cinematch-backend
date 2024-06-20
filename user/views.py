@@ -1,18 +1,21 @@
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import CustomUser, UserFollowing
+from .models import CustomUser, UserFollowing, UserActivity
 from .serializers import (
         MyTokenObtainPairSerializer,
         RegisterSerializer,
         ProfileSerializer,
+        SearchProfileSerializer,
         UserFollowingSerializer,
         UserFollowingListSerializer,
         UserFollowerListSerializer,
+        UserActivitySerializer,
 )
 
 
@@ -56,7 +59,11 @@ class ProfileView(APIView):
     def get(self, request, username):
         try:
             user = CustomUser.objects.get(username=username)
-            serializer = ProfileSerializer(user, many=False)
+            serializer = ProfileSerializer(
+                user,
+                many=False,
+                context={'request': request},
+            )
             return Response(serializer.data)
         except CustomUser.DoesNotExist:
             return Response({
@@ -104,14 +111,25 @@ class UserFollowingView(APIView):
     def get(self, request, username):
         try:
             user = CustomUser.objects.get(username=username)
-            followings = UserFollowing.objects.filter(user=user)
-            followers = UserFollowing.objects.filter(following_user=user)
-            data = {"following_count": user.following_count,
-                    "follower_count": user.follower_count,
-                    "followings": UserFollowingListSerializer(followings, many=True).data,
-                    "followers": UserFollowerListSerializer(followers, many=True).data,
-                    }
-            return Response(data)
+            followings_serialized = UserFollowingListSerializer(
+                                        UserFollowing.objects.filter(
+                                            user=user
+                                        ),
+                                        many=True
+            )
+            followers_serialized = UserFollowerListSerializer(
+                                        UserFollowing.objects.filter(
+                                            following_user=user
+                                        ),
+                                        many=True
+            )
+            data = {
+                "following_count": user.following_count,
+                "follower_count": user.follower_count,
+                "followings": followings_serialized.data,
+                "followers": followers_serialized.data,
+            }
+            return Response(data, status.HTTP_200_OK)
 
         except CustomUser.DoesNotExist:
             return Response({
@@ -140,6 +158,12 @@ class UserFollowingView(APIView):
                           "following_user": following_user.id})
             if serializer.is_valid():
                 serializer.save()
+                UserActivity.objects.create(
+                    username=user,
+                    type="FOLLOWED_USER",
+                    followed_username=following_user,
+                    description=f"{user.username} has started following {username}"
+                )
                 return Response({
                     "error": False,
                     "message": "Successfully followed user.",
@@ -163,10 +187,10 @@ class UserFollowingView(APIView):
         try:
             user = request.user
             following_user = CustomUser.objects.get(username=username)
-            UserFollowingSerializer.delete(self,
-                                           data={"user": user,
-                                                 "following_user": following_user
-                                                 })
+            UserFollowingSerializer.delete(self, data={
+                "user": user,
+                "following_user": following_user
+            })
             return Response({
                 "error": False,
                 "message": "Successfully unfollowed user.",
@@ -181,3 +205,29 @@ class UserFollowingView(APIView):
                 "error": True,
                 "message": "An error has occured.",
             }, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getActivities(request):
+    followed_users = UserFollowing.objects.filter(user=request.user) \
+        .values_list('following_user__username')
+    activities = UserActivity.objects.filter(username__in=followed_users) \
+        .order_by("-created_at")[:20]
+    serialized = UserActivitySerializer(activities, many=True)
+    return Response({
+                "error": False,
+                "activities": serialized.data
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def searchProfile(request):
+    search_query = request.GET.get('query')
+    user = CustomUser.objects.filter(username__contains=search_query)
+    serializer = SearchProfileSerializer(user, many=True)
+    return Response({
+                "error": False,
+                "users": serializer.data
+    })

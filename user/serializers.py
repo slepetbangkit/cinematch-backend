@@ -5,11 +5,15 @@ from rest_framework.serializers import (
         EmailField,
         SerializerMethodField,
         ValidationError,
+        ReadOnlyField,
+        BaseSerializer,
 )
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import CustomUser, UserFollowing
+from .models import CustomUser, UserFollowing, UserActivity
+from movie.models import Playlist, BlendedPlaylist
+from movie.serializers import PlaylistSerializer
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -43,7 +47,13 @@ class RegisterSerializer(ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('username', 'email', 'password', 'token')
+        fields = (
+            'username',
+            'email',
+            'password',
+            'bio',
+            'token'
+        )
 
     def get_token(self, user):
         refresh = MyTokenObtainPairSerializer.get_token(user)
@@ -57,17 +67,79 @@ class RegisterSerializer(ModelSerializer):
         user = CustomUser.objects.create(
             username=validated_data['username'],
             email=validated_data['email'],
+            bio=validated_data['bio'],
         )
 
         user.set_password(validated_data['password'])
         user.save()
+
+        Playlist.objects.create(
+            title="Liked Movies",
+            is_favorite=True,
+            user=user
+        )
         return user
 
 
 class ProfileSerializer(ModelSerializer):
+    is_followed = SerializerMethodField()
+    is_following_user = SerializerMethodField()
+    is_blended = SerializerMethodField()
+    playlists = SerializerMethodField()
+
+    def get_is_followed(self, obj):
+        current_user = self.context['request'].user
+        if current_user == obj:
+            return False
+        return UserFollowing.objects. \
+            filter(user=current_user, following_user=obj).exists()
+
+    def get_is_following_user(self, obj):
+        current_user = self.context['request'].user
+        if current_user == obj:
+            return False
+        return UserFollowing.objects. \
+            filter(user=obj, following_user=current_user).exists()
+
+    def get_is_blended(self, obj):
+        current_user = self.context['request'].user
+        return (
+            BlendedPlaylist.objects.filter(playlist__user=current_user, second_user=obj).exists()
+            or BlendedPlaylist.objects.filter(playlist__user=obj, second_user=current_user).exists()
+        )
+
+    def get_playlists(self, obj):
+        blended_playlists = BlendedPlaylist.objects.filter(
+                second_user=obj
+        ).values('playlist__pk')
+        playlists = Playlist.objects.filter(user=obj) | \
+            Playlist.objects.filter(pk__in=blended_playlists)
+        return PlaylistSerializer(playlists, many=True).data
+
     class Meta:
         model = CustomUser
-        fields = '__all__'
+        fields = (
+            'id',
+            'username',
+            'is_followed',
+            'is_following_user',
+            'is_blended',
+            'profile_picture',
+            'bio',
+            'follower_count',
+            'following_count',
+            'playlists',
+        )
+
+
+class SearchProfileSerializer(ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = (
+            'id',
+            'username',
+            'profile_picture',
+        )
 
 
 class UserFollowingSerializer(ModelSerializer):
@@ -87,14 +159,16 @@ class UserFollowingSerializer(ModelSerializer):
         user = data['user']
         following_user = data['following_user']
 
+        userFollowing = UserFollowing.objects.create(
+                user=user,
+                following_user=following_user,
+        )
         user.following_count = user.following_count + 1
         user.save()
         following_user.follower_count = following_user.follower_count + 1
         following_user.save()
 
-        return UserFollowing.objects.create(
-                user=user,
-                following_user=following_user,)
+        return userFollowing
 
     def delete(self, data):
         user = data['user']
@@ -109,31 +183,40 @@ class UserFollowingSerializer(ModelSerializer):
         following_user.save()
 
 
+class ProfilePictureSerializer(BaseSerializer):
+    def to_representation(self, user):
+        if user.profile_picture:
+            return user.profile_picture.url
+        return None
+
+
 class UserFollowerListSerializer(ModelSerializer):
-    id = SerializerMethodField()
-    username = SerializerMethodField()
-
-    def get_username(self, data):
-        return str(CustomUser.objects.get(id=data.user.id))
-
-    def get_id(self, data):
-        return str(data.user.id)
+    id = ReadOnlyField(source='user.id')
+    username = ReadOnlyField(source='user.username')
+    profile_picture = ProfilePictureSerializer(source='user')
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username')
+        fields = ('id', 'username', 'profile_picture')
 
 
 class UserFollowingListSerializer(ModelSerializer):
-    id = SerializerMethodField()
-    username = SerializerMethodField()
-
-    def get_username(self, data):
-        return str(CustomUser.objects.get(id=data.following_user.id))
-
-    def get_id(self, data):
-        return str(data.following_user.id)
+    id = ReadOnlyField(source='following_user.id')
+    username = ReadOnlyField(source='following_user.username')
+    profile_picture = ProfilePictureSerializer(source='following_user')
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username')
+        fields = ('id', 'username', 'profile_picture')
+
+
+class UserActivitySerializer(ModelSerializer):
+    date = SerializerMethodField()
+    profile_picture = ProfilePictureSerializer(source='username')
+
+    def get_date(self, obj):
+        return obj.created_at.strftime("%d %b %Y")
+
+    class Meta:
+        model = UserActivity
+        fields = '__all__'
