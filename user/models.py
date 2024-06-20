@@ -56,8 +56,9 @@ class UserActivity(models.Model):
             on_delete=models.CASCADE,
             to_field='username',
             related_name='followed_user',
-            null=True)
+            null=True,
+            blank=True,)
     movie_tmdb_id = models.IntegerField(blank=True, null=True)
-    review_id = models.UUIDField(null=True)
+    review_id = models.UUIDField(null=True, blank=True)
     type = models.CharField(max_length=100, choices=ACTIVITY_TYPES)
-    created_at = models.DateField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)

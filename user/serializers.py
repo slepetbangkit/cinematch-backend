@@ -217,4 +217,4 @@ class UserActivitySerializer(ModelSerializer):
 
     class Meta:
         model = UserActivity
-        exclude = ('created_at',)
+        fields = '__all__'
