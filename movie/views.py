@@ -227,6 +227,7 @@ class MovieDetailTMDBView(APIView):
                 return "Very Negative"
         return "N/A"
 
+
     def get(self, request, pk):
         try:
             headers = {
