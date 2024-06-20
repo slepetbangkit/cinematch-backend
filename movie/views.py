@@ -354,7 +354,8 @@ class PlaylistView(APIView):
         try:
             blended_playlists = BlendedPlaylist.objects.filter(
                     second_user=request.user
-            ).values('playlist')
+            ).values('playlist__pk')
+            print(blended_playlists)
             playlists = Playlist.objects.filter(user=request.user) | \
                 Playlist.objects.filter(pk__in=blended_playlists)
             serializer = PlaylistSerializer(playlists, many=True)
@@ -794,7 +795,7 @@ def blendPlaylist(request, username):
                         playlist=playlist,
                         second_user=second_user
                 )
-                for movie_id in movies:
+                for movie_id in recommended_movies:
                     movie = Movie.objects.filter(tmdb_id=movie_id)
                     if movie.exists():
                         movie = movie.first()

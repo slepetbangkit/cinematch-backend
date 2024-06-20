@@ -109,7 +109,11 @@ class ProfileSerializer(ModelSerializer):
         )
 
     def get_playlists(self, obj):
-        playlists = Playlist.objects.filter(user=obj)
+        blended_playlists = BlendedPlaylist.objects.filter(
+                second_user=obj
+        ).values('playlist__pk')
+        playlists = Playlist.objects.filter(user=obj) | \
+            Playlist.objects.filter(pk__in=blended_playlists)
         return PlaylistSerializer(playlists, many=True).data
 
     class Meta:
