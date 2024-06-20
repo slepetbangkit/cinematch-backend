@@ -17,6 +17,10 @@ class PlaylistSerializer(ModelSerializer):
     user = CharField(required=False)
     username = ReadOnlyField(source='user.username')
     movies = MovieSerializer(many=True, read_only=True)
+    is_blend = SerializerMethodField()
+
+    def get_is_blend(self, obj):
+        return BlendedPlaylist.objects.filter(playlist=obj).exists()
 
     class Meta:
         model = Playlist
